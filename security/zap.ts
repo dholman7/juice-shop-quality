@@ -41,7 +41,7 @@ export interface Finding {
   solution: string;
 }
 
-/** A person's decision on a medium or high finding. Only security:review writes these. */
+/** A person's decision on a medium or high finding. Only the reviews (`yarn review`, `security:review`) write these. */
 export interface FindingDecision {
   ref: string;
   name: string;
@@ -151,7 +151,7 @@ export function printSummary(s: ZapSummary): void {
       `${s.dismissed.length} dismissed · ${s.reported.length} low/informational`,
   );
   for (const f of s.newFindings) console.log(`  NEW ${f.risk.toUpperCase()}: ${f.name} [${f.ref}] x ${f.count}, e.g. ${f.example}`);
-  if (s.newFindings.length) console.log('Decide with `yarn security:review`. Full report: reports/zap/zap.html');
+  if (s.newFindings.length) console.log('Decide with `yarn review` or `yarn security:review`. Full report: reports/zap/zap.html');
 }
 
 function reviewer(): string {

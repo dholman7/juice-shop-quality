@@ -269,7 +269,7 @@ function summary(run: TriageRun): void {
   const counts = Object.fromEntries(CATEGORIES.map((c) => [c, run.proposals.filter((p) => p.category === c).length]));
   const tests = run.groups.reduce((n, g) => n + g.failures.length, 0);
   console.log(`triage (${run.provider}): ${tests} failing test(s) in ${run.groups.length} group(s)`, counts);
-  console.log(`proposals written to ${PROPOSALS}; nothing is applied until someone runs \`yarn triage:review\``);
+  console.log(`proposals written to ${PROPOSALS}; nothing is applied until someone decides in \`yarn review\``);
 }
 
 // Only as the entry script: run-all imports propose() and passes its own arguments.

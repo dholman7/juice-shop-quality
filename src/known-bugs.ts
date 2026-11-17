@@ -1,5 +1,5 @@
 /**
- * Known-bug registry: product bugs a person approved in `yarn triage:review`, stored in known-bugs.json.
+ * Known-bug registry: product bugs a person approved in review (`yarn review` or `yarn triage:review`), stored in known-bugs.json.
  * Tests that hit one are marked as expected failures, so CI goes red only for new failures or a bug
  * that looks fixed, while the bug stays visible in the report.
  */
@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { TestInfo } from '@playwright/test';
 
-/** One approved bug. Only the review CLI writes these, with the reviewer's name and date. */
+/** One approved bug. Only the reviews (page or terminal) write these, with the reviewer's name and date. */
 export interface KnownBug {
   id: string;
   /** The tracker ticket the bug is reported in, e.g. SHOP-214. */

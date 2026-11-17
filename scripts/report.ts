@@ -85,7 +85,7 @@ function runHistory(history: RunSummary[]): string {
 function security(zap: ZapSummary | undefined): string {
   if (!zap) return '<h2>Security scan (OWASP ZAP baseline)</h2><p>Not run this time (<code>SKIP_ZAP=1</code>, or the scan failed: see the run log).</p>';
   const row = (f: ZapSummary['reported'][number], state: string, note = '') =>
-    `<tr><td>${state}</td><td><span class="pill sev-${f.risk === 'informational' ? 'low' : f.risk}">${f.risk}</span></td><td>${esc(f.name)}${f.cwe ? ` <span class="legend">CWE-${f.cwe}</span>` : ''}</td><td class="num">${f.count}</td><td><code>${esc(f.example)}</code></td><td>${state.includes('needs a person') ? '<code>yarn security:review</code>' : esc(note)}</td></tr>`;
+    `<tr><td>${state}</td><td><span class="pill sev-${f.risk === 'informational' ? 'low' : f.risk}">${f.risk}</span></td><td>${esc(f.name)}${f.cwe ? ` <span class="legend">CWE-${f.cwe}</span>` : ''}</td><td class="num">${f.count}</td><td><code>${esc(f.example)}</code></td><td>${state.includes('needs a person') ? '<code>yarn review</code>' : esc(note)}</td></tr>`;
   const rows = [
     ...zap.newFindings.map((f) => row(f, status('warn', 'needs a person'))),
     ...zap.bugs.map((f) => row(f, status('warn', 'open bug'), `${f.decision.decidedBy} · ${f.decision.decidedOn}${f.decision.reason ? ` · ${f.decision.reason}` : ''}`)),
@@ -204,14 +204,14 @@ th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;verti
 ${progress(history)}
 
 <h2>Waiting for a person</h2>
-<p class="legend">The triage agent (${esc(triage?.provider ?? 'not run')}) grouped new failures and proposed a cause for each group. Nothing is filed until someone runs <code>yarn triage:review</code>.</p>
+<p class="legend">The triage agent (${esc(triage?.provider ?? 'not run')}) grouped new failures and proposed a cause for each group. Nothing is filed until someone decides it in <code>yarn review</code>.</p>
 ${pendingRows.length ? `<div class="scroll"><table><thead><tr><th>Likely cause</th><th>Tests</th><th>Example</th><th>Evidence (quoted from the failure)</th><th>Confidence</th></tr></thead><tbody>${pendingRows.join('')}</tbody></table></div>` : '<p>Nothing to review.</p>'}
 
 <h2>By risk area</h2>
 <table><thead><tr><th>Area</th><th class="num">Tests</th><th class="num">Passed</th><th class="num">New failures</th><th class="num">Open bugs</th><th class="num">Flaky</th></tr></thead><tbody>${byArea.join('')}</tbody></table>
 
 <h2>Open bugs</h2>
-<p class="legend">Severity is impact × likelihood, each 1–5: 20+ critical, 12+ high, 6+ medium, else low.${mismatched.size ? ` ${mismatched.size} bug(s) don't match their score; <code>yarn triage:review</code> starts with them.` : ''}</p>
+<p class="legend">Severity is impact × likelihood, each 1–5: 20+ critical, 12+ high, 6+ medium, else low.${mismatched.size ? ` ${mismatched.size} bug(s) don't match their score; <code>yarn review</code> starts with them.` : ''}</p>
 ${bugRows.length ? `<div class="scroll"><table><thead><tr><th>Bug</th><th>Severity</th><th>Area</th><th>Title</th><th class="num">Failing tests</th><th>Approved</th></tr></thead><tbody>${bugRows.join('')}</tbody></table></div>` : '<p>No approved bugs yet.</p>'}
 
 ${security(zap)}

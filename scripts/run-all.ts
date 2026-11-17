@@ -41,7 +41,7 @@ console.log('Running the Playwright suite...');
 // The suite's exit code is ignored here; the verdict below uses the known-bug registry instead.
 spawnSync('yarn', ['playwright', 'test'], { stdio: 'inherit' });
 
-// Triage only proposes. Nothing reaches known-bugs.json until a person runs `yarn triage:review`.
+// Triage only proposes. Nothing reaches known-bugs.json until a person decides in `yarn review` or `yarn triage:review`.
 const run = propose();
 mkdirSync('reports', { recursive: true });
 // Add this run to reports/history.json, then build the report from the full history (for the trends).
@@ -51,10 +51,10 @@ writeFileSync('docs/coverage.md', coverageMarkdown(readRows().rows));
 const { rows } = readRows();
 const n = (r: string) => rows.filter((x) => x.result === r).length;
 console.log(`\n${n('passed')} passed · ${n('failed')} new failures · ${n('known-bug')} open bugs · ${n('flaky')} flaky · ${n('skipped')} skipped`);
-console.log(`Triage: ${run.groups.length} group(s) proposed (${run.provider}). Review with \`yarn triage:review\`.`);
+console.log(`Triage: ${run.groups.length} group(s) proposed (${run.provider}). Review with \`yarn review\` (a local page) or \`yarn triage:review\`.`);
 if (zap) printSummary(zap);
 const offScore = severityMismatches(loadKnownBugs());
-if (offScore.length) console.log(`Severity: ${offScore.map((b) => b.id).join(', ')} don't match impact × likelihood. Fix with \`yarn triage:review\`.`);
+if (offScore.length) console.log(`Severity: ${offScore.map((b) => b.id).join(', ')} don't match impact × likelihood. Fix with \`yarn review\`.`);
 console.log('Report: reports/index.html');
 // Red on a new failure, and on a "fixed" known bug, so its registry entry gets removed rather than forgotten.
 // Red on an undecided medium or high scan finding, a scan that didn't run, or a severity that isn't its score's band.

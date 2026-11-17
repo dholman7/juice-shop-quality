@@ -8,6 +8,7 @@ Playwright + TypeScript suite for the top 3 risks in the case-study strategy, a 
 | REST endpoints in those areas | 68; 66 called as every role (anonymous, customer, deluxe, accounting, admin), 2 skip staff roles for a [stated reason](#coverage-map) |
 | Tests | 532 (492 API, 40 UI) in about a minute, against 38 minutes for the old 60-test UI suite |
 | Extra piece (step 2) | Failure-triage agent with a human review gate |
+| Human review | `yarn review`: one local page where a tester decides each failure group, bug severity, and scan finding. Nothing is filed without their name. |
 | Security scan | OWASP ZAP baseline (passive) on every run; medium and high findings fail the run until a person decides on them |
 | Latest report | [dholman7.github.io/juice-shop-quality](https://dholman7.github.io/juice-shop-quality/), published by CI from `main` and nightly |
 
@@ -33,6 +34,8 @@ yarn all
 
 It exits non-zero if any test fails that is not an approved open bug, if an approved bug's test starts passing, if the scan raises a medium or high finding nobody has decided on, or if a bug's severity doesn't match its impact × likelihood score. It takes about two minutes.
 
+Then `yarn review` opens a local page to decide what the run found (see [the triage agent](#why-the-triage-agent-step-2)).
+
 **In CI** ([`tests.yml`](.github/workflows/tests.yml)): every pull request, push to `main`, and nightly run (07:00 UTC) runs the typecheck, unit tests, and `yarn all`, and uploads the report as a build artifact. Runs on `main` also publish it to GitHub Pages, carrying `history.json` forward so the trend builds without a database.
 
 | Command | What it does |
@@ -49,7 +52,7 @@ It exits non-zero if any test fails that is not an approved open bug, if an appr
 | `REVIEWER="Your Name" yarn triage:review` | A person accepts, changes, or rejects each group. The screen shows the rule being tested, the likely cause, quoted evidence, and severity. |
 | `REVIEWER="Your Name" yarn triage:rate` | A person changes an open bug's impact and likelihood scores with a reason; the severity follows, and the change is kept on the bug and shown in the report |
 | `yarn report`, `yarn coverage:map` | Rebuild the report or coverage map from the last run |
-| `yarn test:unit` | Unit tests for triage (redaction, rules, validation, grouping, duplicate suggestions), run history, the software passkey, and the scan gate |
+| `yarn test:unit` | Unit tests for triage (redaction, rules, validation, grouping, duplicate suggestions, bug filing, Jira keys, severity scoring), run history, the software passkey, and the scan gate |
 
 > [!IMPORTANT]
 > Only run this against your own local container. The security checks send attack payloads (SQL injection, forged tokens).
@@ -147,7 +150,7 @@ Agreement is not accuracy: neither side is ground truth. Accuracy needs a labele
 - **Passive only:** ZAP spiders the app for a minute and checks responses (headers, cookies, CORS, information leaks). No attack traffic.
 - **Local only:** ZAP runs inside the Juice Shop container's network, so `localhost:3000` is the only target it can reach.
 - **Pinned:** ZAP 2.17.0 by image digest, so every run uses the same rules.
-- **Gate:** medium and high findings fail the run until a person runs `yarn security:review` and files each as a bug or dismisses it with a reason. Decisions go in [`security/zap-findings.json`](security/zap-findings.json) with name and date, the same gate as `known-bugs.json`. Low and informational findings are listed, never gating.
+- **Gate:** medium and high findings fail the run until a person, in `yarn review` or `yarn security:review`, files each as a bug or dismisses it with a reason. Decisions go in [`security/zap-findings.json`](security/zap-findings.json) with name and date, the same gate as `known-bugs.json`. Low and informational findings are listed, never gating.
 - The report's security section shows every finding and its decision, and links ZAP's own report.
 
 First scan (2 medium, 4 low, 3 informational):
@@ -189,6 +192,9 @@ Built with Claude Code. Most of the AI's mistakes surfaced the same way: run the
 | Duplicate-bug suggestions for the review screen, matching on same endpoint and title word overlap | Replayed on the 41 real groups, it offered suggestions for 23, mostly noise: role names and template words made `GET /api/Users` look 75% like `GET /api/BasketItems`. | Compare content words only, need two shared words, and give endpoint matches weight only when both are access checks. Replayed again: 9 suggestions, covering every finding this README groups together. Each rule has a unit test. The real review merged 15 groups into existing bugs; replayed in order, the check suggested the right bug for 5, with 4 wrong suggestions. Counting any shared endpoint found 8 but made 17 wrong. Most misses are a known defect on a new endpoint, which matching can't see, so review also searches bug titles. |
 | Password change and reset tests that also checked for the password hash | The hash check ran first. Once the hash bug was registered, the whole test became an expected failure, so a broken change or reset would go unseen. | Hash checks moved to their own tests with the same assertion. The change and reset tests now pass on their own. |
 | Review CLI that filed each bug under its endpoint's risk area | Reviewing the first 41 groups filed "unsigned tokens", an R3 login test that probes a basket endpoint, as R1. The report already used the test's own area, so the two disagreed. | The CLI takes the test's own area first, matching the report. |
+| Severity picked by hand at review, apart from the strategy's impact × likelihood | Scoring all 26 bugs afterwards, 3 didn't match their score: readable user records were rated high but score 25, critical. | Each bug stores both scores and its severity is computed. `yarn all` fails on a mismatch, and review starts with any. |
+| Triage rule: 502, 503, or 504 anywhere in the error means the app was down | It matched file paths and line numbers. Under a folder named `claude-502`, real product bugs were proposed as "environment". | Stack and code-frame lines are left out of that check; a unit test pins the case. |
+| Terminal prompts as the tester's review tool | Too much for a manual tester. My own review hit two bugs: a mistyped key skipped a bug and the review exited as if it had crashed, and an extra argument crashed `yarn all`. | Both fixed. `yarn review` puts the same review on one local page, writing the same files through the same code. |
 
 ## Secrets
 
@@ -202,6 +208,7 @@ In a shared pipeline:
 
 ## Next steps
 
+- Create the Jira ticket from the review page through the Jira API, instead of typing a key filed by hand.
 - Confirm three assumed rules with the product owner: a 429 within 20 wrong passwords, an address needs a name, and admins can't read customer baskets through the customer API.
 - **Evaluate triage against labeled failures.** Reviewed decisions plus deliberately broken tests, outages, and planted races give known causes. Score accuracy per category, product-bug precision, and confident-but-wrong answers with confidence intervals, on a frozen held-out split, replayed keyless in CI. Same method as [agent-eval-gate](https://github.com/dholman7/agent-eval-gate).
 - Authenticated and active ZAP scans nightly on staging; the baseline sees only what an anonymous spider reaches.
