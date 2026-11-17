@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { up } from './juice-shop';
 import { propose } from '../triage/cli';
 import { buildReport } from './report';
+import { recordRun, summarize } from './history';
 import { coverageMarkdown } from './coverage-map';
 import { readRows } from './results';
 
@@ -22,7 +23,7 @@ spawnSync('yarn', ['playwright', 'test'], { stdio: 'inherit' });
 
 const run = propose();
 mkdirSync('reports', { recursive: true });
-writeFileSync('reports/index.html', buildReport());
+writeFileSync('reports/index.html', buildReport(recordRun(summarize())));
 writeFileSync('docs/coverage.md', coverageMarkdown(readRows().rows));
 
 const { rows } = readRows();

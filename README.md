@@ -5,9 +5,10 @@ Playwright + TypeScript suite for the top 3 risks in the case-study strategy, pl
 | | |
 |:--|:--|
 | Risk areas covered | R1 Customer data isolation · R2 Checkout and payment · R3 Login and account security |
-| REST endpoints in those areas | 68, every one called as every role (anonymous, customer, deluxe, accounting, admin) |
+| REST endpoints in those areas | 68; 64 called as every role (anonymous, customer, deluxe, accounting, admin), 4 skip a role for a [stated reason](#coverage-map) |
 | Tests | 527 (487 API, 40 UI) in about 55 seconds, against 38 minutes for the old 60-test UI suite |
 | Extra piece (step 2) | Failure-triage agent with a human review gate |
+| Latest report | [dholman7.github.io/juice-shop-quality](https://dholman7.github.io/juice-shop-quality/), published by CI from `main` and nightly |
 
 ## Run it
 
@@ -21,7 +22,8 @@ yarn all
 
 `yarn all` starts a fresh Juice Shop container, runs every test, asks the triage agent to propose a cause for each new failure, and writes:
 
-- `reports/index.html`: summary, triage proposals waiting for review, open bugs, and the endpoint-by-role coverage grid
+- `reports/index.html`: summary, progress against the strategy's day-90 measures with a trend across runs, triage proposals waiting for review, open bugs, and the endpoint-by-role coverage grid
+- `reports/history.json`: one summary per run; CI carries it forward between published runs, so the trend survives
 - `reports/playwright/index.html`: every test with traces and screenshots for failures
 - `docs/coverage.md`: the coverage map, regenerated from the run
 
@@ -120,6 +122,8 @@ How it works ([`triage/`](triage)):
 - Claude sent the other 8 to a person. All 8 are business-rule expectations, such as "an empty basket can't be checked out" or "a quantity of 0 is refused", which the failure text alone cannot prove. That is the caution the prompt asks for, and it shows where a tester's judgment is needed.
 - One answer's reasoning was literally "Placeholder; to be replaced after reading the test source." Validation now rejects unfinished reasoning, and a unit test pins that exact answer.
 
+Agreement is not accuracy: neither side is ground truth. Accuracy needs a labeled set (see [Next steps](#next-steps)).
+
 ## What the AI produced that I changed or rejected
 
 Built with Claude Code. Most of the AI's mistakes surfaced the same way: run the tests, then check each failure against the actual response, trace, or Juice Shop source before calling it a product bug. Nothing was labeled a bug on the AI's word.
@@ -151,6 +155,6 @@ In a shared pipeline:
 ## Next steps
 
 - Review the 39 proposed groups with the testers and fill `known-bugs.json`, so CI goes green on known bugs and red on new ones.
-- Measure the Claude provider against the heuristic on reviewed decisions before trusting it more.
+- **Evaluate triage against labeled failures.** Reviewed decisions plus deliberately broken tests, outages, and planted races give known causes. Score accuracy per category, product-bug precision, and confident-but-wrong answers with confidence intervals, on a frozen held-out split, replayed keyless in CI. Same method as [agent-eval-gate](https://github.com/dholman7/agent-eval-gate).
 - Add the other step-2 options as separate jobs: an OWASP ZAP baseline scan, and k6 checkout load tests with pass/fail thresholds in a production-like environment.
 - Extend the catalog to the next risk areas: file upload and complaints, product reviews, and admin functions.

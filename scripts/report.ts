@@ -7,6 +7,7 @@ import { AREAS, ENDPOINTS, allows, type Area } from '../src/catalog';
 import { ROLES } from '../src/config';
 import { loadKnownBugs } from '../src/known-bugs';
 import { readRows, type Row } from './results';
+import { readHistory, summarize, type RunSummary } from './history';
 import type { TriageRun } from '../triage/cli';
 import type { Decision } from '../triage/types';
 
@@ -17,7 +18,64 @@ function areaOf(r: Row): Area | undefined {
   return m ? (m[1] as Area) : undefined;
 }
 
-export function buildReport(): string {
+function sparkline(values: number[], label: string): string {
+  const v = values.slice(-30);
+  if (v.length < 2) return '<span class="legend">first run</span>';
+  const [w, h, pad] = [120, 28, 4];
+  const min = Math.min(...v);
+  const span = Math.max(...v) - min;
+  const x = (i: number) => pad + (i * (w - 2 * pad)) / (v.length - 1);
+  const y = (val: number) => (span ? h - pad - ((val - min) * (h - 2 * pad)) / span : h / 2);
+  const points = v.map((val, i) => `${x(i).toFixed(1)},${y(val).toFixed(1)}`).join(' ');
+  const last = v.length - 1;
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(label)}, last ${v.length} runs: ${v.join(', ')}"><title>${esc(label)}: ${v.join(' → ')}</title><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="${x(last).toFixed(1)}" cy="${y(v[last]).toFixed(1)}" r="2.5" fill="currentColor"/></svg>`;
+}
+
+const status = (tone: 'ok' | 'warn' | 'muted', text: string) => `<span class="pill st-${tone}">${esc(text)}</span>`;
+
+/** The strategy's day-90 measures that a test run can show, with the trend across recorded runs. */
+function progress(history: RunSummary[]): string {
+  const now = history[history.length - 1];
+  const runsWithNoise = history.filter((r) => r.nonProductFailures > 0).length;
+  const noiseShare = runsWithNoise / history.length;
+  const ep = now.endpoints;
+  const sev = (['critical', 'high', 'medium', 'low'] as const).filter((s) => now.bugsBySeverity[s]).map((s) => `${now.bugsBySeverity[s]} ${s}`);
+  const rows: [string, string, string, string, string][] = [
+    ['Regression suite duration', `${now.durationS} s`, sparkline(history.map((r) => r.durationS), 'Seconds'), 'Under 15 min',
+      now.durationS < 900 ? status('ok', 'on track') : status('warn', 'over target')],
+    ['Failures not caused by product bugs', `${now.nonProductFailures} test(s) · ${runsWithNoise} of ${history.length} runs`,
+      sparkline(history.map((r) => r.nonProductFailures), 'Tests'), 'Under 2% of runs',
+      noiseShare < 0.02 ? status('ok', 'on track') : status('warn', `${Math.round(noiseShare * 100)}% of runs`)],
+    ['Top-3 endpoints tested for every role', `${ep.everyRole} of ${ep.total} (${ep.checksRun} of ${ep.checks} role checks)`,
+      sparkline(history.map((r) => r.endpoints.everyRole), 'Endpoints'), '100%',
+      ep.everyRole === ep.total ? status('ok', 'met') : status('warn', `${ep.total - ep.everyRole} to go`)],
+    ['Open bugs, by severity', sev.length ? sev.join(' · ') : 'none approved yet', sparkline(history.map((r) => r.openBugs), 'Failing tests on open bugs'),
+      'Tracked', status('muted', 'tracked')],
+    ['Triage proposals accepted unchanged', now.triage.decided ? `${now.triage.acceptedUnchanged} of ${now.triage.decided}` : 'no reviews yet', '',
+      'Tracked weekly', status('muted', 'tracked')],
+  ];
+  return `<h2>Progress</h2>
+<p class="legend">Day-90 measures from the test strategy that a test run can show, over the last ${history.length} recorded run(s).</p>
+<div class="scroll"><table><thead><tr><th>Measure</th><th>Now</th><th>Trend</th><th>Day-90 target</th><th>Status</th></tr></thead><tbody>
+${rows.map((r) => `<tr><th>${r[0]}</th><td>${r[1]}</td><td class="trend">${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td></tr>`).join('')}
+</tbody></table></div>
+<p class="legend">Not shown, because a test run can't measure them: production bugs per release (bug tracker), releases late because of testing (release calendar), and tester time on exploratory, security, and performance work (sprint records). Skipped role checks have a stated reason in the README.</p>`;
+}
+
+function runHistory(history: RunSummary[]): string {
+  const recent = history.slice(-10).reverse();
+  return `<h2>Recent runs</h2><div class="scroll"><table><thead><tr><th>Started</th><th>Commit</th><th>Where</th><th class="num">Duration</th><th class="num">Passed</th><th class="num">New failures</th><th class="num">Failing on open bugs</th><th class="num">Flaky</th></tr></thead><tbody>${recent
+    .map((r) => `<tr><td>${esc(new Date(r.at).toLocaleString('en-US', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short' }))} UTC</td><td><code>${esc(r.commit ?? '-')}</code></td><td>${r.source}</td><td class="num">${r.durationS} s</td><td class="num">${r.passed}</td><td class="num">${r.newFailures}</td><td class="num">${r.openBugs}</td><td class="num">${r.flaky}</td></tr>`)
+    .join('')}</tbody></table></div>`;
+}
+
+/** Recorded runs plus this one, without writing anything. */
+function historyWithCurrent(): RunSummary[] {
+  const now = summarize();
+  return [...readHistory().filter((r) => r.at !== now.at), now].sort((a, b) => a.at.localeCompare(b.at));
+}
+
+export function buildReport(history: RunSummary[] = historyWithCurrent()): string {
   const { rows, stats } = readRows();
   const count = (res: Row['result']) => rows.filter((r) => r.result === res).length;
   const bugs = loadKnownBugs();
@@ -89,11 +147,14 @@ th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;verti
 .cell.failed,.cell.fixed{background:#fde8e6;color:var(--bad)}.cell.flaky{background:#efe6fb;color:#6b3fa0}.cell.skipped,.cell.none{color:#9aa5b1}
 .pill{display:inline-block;white-space:nowrap;padding:1px 8px;border-radius:99px;font-size:12px;background:#eef1f4}.pill.product-bug,.pill.sev-critical{background:#fde8e6;color:var(--bad)}
 .pill.test-bug,.pill.sev-high{background:#fdf1d8;color:var(--warn)}.pill.flaky{background:#efe6fb;color:#6b3fa0}.pill.environment{background:#e3eefa;color:var(--accent)}
-.pill.fixed{background:#e6f4ec;color:var(--ok)}.legend{color:var(--muted);font-size:13px}a{color:var(--accent)}
+.pill.fixed,.pill.st-ok{background:#e6f4ec;color:var(--ok)}.pill.st-warn{background:#fdf1d8;color:var(--warn)}.pill.st-muted{color:var(--muted)}
+.trend{color:var(--accent);width:140px}.spark{display:block}tbody th{font-weight:600}.legend{color:var(--muted);font-size:13px}a{color:var(--accent)}
 </style></head><body><main>
 <h1>Juice Shop test run</h1>
-<p class="sub">${esc(new Date(stats.startTime).toLocaleString())} · ${(stats.duration / 1000).toFixed(0)} s · ${rows.length} tests · <a href="playwright/index.html">Playwright report with traces</a> · <a href="../docs/coverage.md">coverage map</a></p>
+<p class="sub">${esc(new Date(stats.startTime).toLocaleString())} · ${(stats.duration / 1000).toFixed(0)} s · ${rows.length} tests · <a href="playwright/index.html">Playwright report with traces</a> · <a href="${process.env.GITHUB_REPOSITORY ? `${process.env.GITHUB_SERVER_URL ?? 'https://github.com'}/${process.env.GITHUB_REPOSITORY}/blob/main/docs/coverage.md` : '../docs/coverage.md'}">coverage map</a></p>
 <section class="tiles">${tiles.map(([label, n, tone]) => `<div class="tile ${tone}"><b>${n}</b>${label}</div>`).join('')}</section>
+
+${progress(history)}
 
 <h2>Waiting for a person</h2>
 <p class="legend">The triage agent (${esc(triage?.provider ?? 'not run')}) grouped new failures and proposed a cause for each group. Nothing is filed until someone runs <code>yarn triage:review</code>.</p>
@@ -108,6 +169,8 @@ ${bugRows.length ? `<div class="scroll"><table><thead><tr><th>Bug</th><th>Severi
 <h2>Coverage: every endpoint, every role</h2>
 <p class="legend">✓ the role may call it · ✗ it must be refused · green as intended · amber open bug · red new failure · grey not run. Hover a cell for detail.</p>
 ${grid.join('')}
+
+${runHistory(history)}
 </main></body></html>`;
 }
 
