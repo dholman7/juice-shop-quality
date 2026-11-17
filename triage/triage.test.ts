@@ -44,6 +44,23 @@ test('a selector problem is proposed as a test bug', () => {
   assert.equal(classify(group(f)).category, 'test-bug');
 });
 
+test('a 502 in a file path or line number is not an environment problem', () => {
+  // Arrange: an assertion failure whose stack path and code frame contain 502
+  const f = failure({ error: [
+    'Error: GET /rest/basket/:id as customer returned 200',
+    '  502 |   expect(res.status()).toBe(403);',
+    '    at refused (/tmp/claude-502/repo/tests/api/isolation.spec.ts:502:99)',
+  ].join('\n') });
+
+  // Act / Assert
+  assert.notEqual(classify(group(f)).category, 'environment');
+});
+
+test('a 503 from the app is still an environment problem', () => {
+  const f = failure({ error: 'Error: GET /rest/products returned 503\n    at probe (/repo/src/probes.ts:12:3)' });
+  assert.equal(classify(group(f)).category, 'environment');
+});
+
 test('a refused connection is proposed as an environment problem', () => {
   const f = failure({ error: 'Error: apiRequestContext.get: connect ECONNREFUSED 127.0.0.1:3000' });
   assert.equal(classify(group(f)).category, 'environment');

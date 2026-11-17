@@ -50,7 +50,9 @@ export function classify(group: FailureGroup): Proposal {
     return { ...base, category: 'flaky', confidence: 'high', evidence: quote(text, /\S/) ?? '', reasoning: `Failed, then passed on retry (${group.failures.length} test(s)).` };
   }
 
-  const env = quote(text, /ECONNREFUSED|ERR_CONNECTION_REFUSED|socket hang up|did not answer|net::ERR_|\b50[234]\b/);
+  // Stack and code-frame lines hold file paths and line numbers, where "502" is not a gateway error.
+  const message = text.split('\n').filter((line) => !/^\s*at\s|^\s*>?\s*\d+\s*\|/.test(line)).join('\n');
+  const env = quote(message, /ECONNREFUSED|ERR_CONNECTION_REFUSED|socket hang up|did not answer|net::ERR_|\b50[234]\b/);
   if (env) return { ...base, category: 'environment', confidence: 'high', evidence: env, reasoning: 'The app or network was unreachable, so the test never exercised product behavior.' };
 
   const testBug = quote(text, /strict mode violation|TypeError|ReferenceError|is not a function|Cannot read properties|resolved to \d+ elements|SyntaxError/);
