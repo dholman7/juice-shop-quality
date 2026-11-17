@@ -43,9 +43,7 @@ function progress(history: RunSummary[]): string {
   const ep = now.endpoints;
   const sev = (['critical', 'high', 'medium', 'low'] as const).filter((s) => now.bugsBySeverity[s]).map((s) => `${now.bugsBySeverity[s]} ${s}`);
   const rows: [string, string, string, string, string][] = [
-    ['Regression suite duration', `${now.durationS} s`, sparkline(history.map((r) => r.durationS), 'Seconds'), 'Under 15 min',
-      now.durationS < 900 ? status('ok', 'on track') : status('warn', 'over target')],
-    ['Failures not caused by product bugs', `${now.nonProductFailures} test(s) · ${runsWithNoise} of ${history.length} runs`,
+    ['Test runs failing for reasons other than a product bug', `${runsWithNoise} of ${history.length} runs (${now.nonProductFailures} test(s) this run)`,
       sparkline(history.map((r) => r.nonProductFailures), 'Tests'), 'Under 2% of runs',
       noiseShare < 0.02 ? status('ok', 'on track') : status('warn', `${Math.round(noiseShare * 100)}% of runs`)],
     ['Top-3 endpoints tested for every role', `${ep.everyRole} of ${ep.total} (${ep.checksRun} of ${ep.checks} role checks)`,
@@ -53,6 +51,8 @@ function progress(history: RunSummary[]): string {
       ep.everyRole === ep.total ? status('ok', 'met') : status('warn', `${ep.total - ep.everyRole} to go`)],
     ['Open bugs, by severity', sev.length ? sev.join(' · ') : 'none approved yet', sparkline(history.map((r) => r.openBugs), 'Failing tests on open bugs'),
       'Tracked', status('muted', 'tracked')],
+    // Supporting number, not a day-90 measure: the old suite took 38 minutes.
+    ['Suite duration (supporting)', `${now.durationS} s`, sparkline(history.map((r) => r.durationS), 'Seconds'), 'Old suite: 38 min', status('muted', 'tracked')],
     ['Triage proposals accepted unchanged', now.triage.decided ? `${now.triage.acceptedUnchanged} of ${now.triage.decided}` : 'no reviews yet', '',
       'Tracked weekly', status('muted', 'tracked')],
   ];
