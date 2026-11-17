@@ -24,12 +24,14 @@ yarn all
 
 `yarn all` starts a fresh Juice Shop container, runs every test, asks the triage agent to propose a cause for each new failure, and writes:
 
-- `reports/index.html`: summary, progress against the strategy's day-90 measures with a trend across runs, triage proposals waiting for review, open bugs, and the endpoint-by-role coverage grid
+- `reports/index.html`: summary, progress against the strategy's day-90 measures with a trend across runs, triage proposals waiting for review, open bugs, and the endpoint-by-role coverage grid (hover or tap a cell to see its tests and their results)
 - `reports/history.json`: one summary per run; CI carries it forward between published runs, so the trend survives
 - `reports/playwright/index.html`: every test with traces and screenshots for failures
 - `docs/coverage.md`: the coverage map, regenerated from the run
 
-It exits non-zero if any test fails that is not an approved open bug.
+It exits non-zero if any test fails that is not an approved open bug, or if an approved bug's test starts passing.
+
+**In CI** ([`tests.yml`](.github/workflows/tests.yml)): every pull request, push to `main`, and nightly run (07:00 UTC) runs the typecheck, unit tests, and `yarn all`, and uploads the report as a build artifact. Runs on `main` also publish it to GitHub Pages, carrying `history.json` forward so the trend builds without a database.
 
 | Command | What it does |
 |:--|:--|
@@ -38,9 +40,9 @@ It exits non-zero if any test fails that is not an approved open bug.
 | `yarn playwright test --grep @R1` | One risk area's tests, API and UI (`@R1`, `@R2`, `@R3`); every test carries its endpoint's area tag |
 | `yarn triage` | Propose a cause for each failure group (offline rules) |
 | `TRIAGE_PROVIDER=claude yarn triage` | Same, classified by Claude through the local `claude` CLI |
-| `yarn triage:review` | A person accepts, changes, or rejects each proposal |
+| `REVIEWER="Your Name" yarn triage:review` | A person accepts, changes, or rejects each group. The screen shows the rule being tested, the likely cause, quoted evidence, and severity. |
 | `yarn report`, `yarn coverage:map` | Rebuild the report or coverage map from the last run |
-| `yarn test:unit` | Unit tests for the triage agent (redaction, rules, validation, grouping) |
+| `yarn test:unit` | Unit tests for triage (redaction, rules, validation, grouping), run history, and the software passkey |
 
 > [!IMPORTANT]
 > Only run this against your own local container. The security checks send attack payloads (SQL injection, forged tokens).
@@ -71,7 +73,7 @@ Not run, with the reason recorded in the catalog note:
 
 ## What the suite found
 
-Each item below is a failing test today. Severity follows the area's risk rank.
+Each item below is a failing test today, unless noted. Severity is rated per finding.
 
 | Area | Finding | Severity |
 |:--|:--|:--|
@@ -99,7 +101,7 @@ Each item below is a failing test today. Severity follows the area's risk rank.
 | R3 | Changing the password does not require the current one | High |
 | R3 | No rate limit on wrong passwords | Medium |
 | R3 | Sign-up accepts mismatched passwords; some unauthenticated calls return 500 instead of 401 | Low |
-| R3 | The 2FA settings page sends "Save" without its setup token if clicked before the QR code loads (found while chasing a flaky test) | Low |
+| R3 | The 2FA settings page sends "Save" without its setup token if clicked before the QR code loads (found while chasing a flaky test; not a test) | Low |
 
 ## Why the triage agent (step 2)
 
@@ -114,11 +116,11 @@ How it works ([`triage/`](triage)):
 1. [`collect.ts`](triage/collect.ts) reads the Playwright JSON report and keeps new failures and flaky passes. Approved bugs are already decided and skipped.
 2. [`redact.ts`](triage/redact.ts) strips tokens, emails, password hashes, card numbers, and secrets before any text leaves the machine.
 3. Failures that share an endpoint and an error signature form one group (the same defect seen by 4 roles is one decision).
-4. A provider proposes a category:
+4. A provider proposes a likely cause:
    - **`heuristic`** (default, offline): deterministic rules. It is the baseline and the fallback.
    - **`claude`**: Claude through the local `claude` CLI, with a JSON schema for the answer. In CI it would call the Claude API with a key from the pipeline's secret store.
 5. [`model.ts`](triage/model.ts) validates every model answer: the evidence must be a verbatim quote from the failure text, and "flaky" requires a retry that passed. If either check fails, the answer drops to `needs-human`. The model never gets the final say.
-6. `yarn triage:review` shows each group to a person: accept, change category, reject, or skip. Only accepted product bugs reach `known-bugs.json`, with the reviewer's name and date. Every decision is logged in `triage/decisions.jsonl`.
+6. `yarn triage:review` shows each group to a person: accept, change the likely cause, reject, or skip. Only accepted product bugs reach `known-bugs.json`, with the reviewer's name, the date, and a severity. The severity is suggested from the risk area, and the reviewer rates the finding itself. Every decision is logged in `triage/decisions.jsonl`.
 
 **First real run (73 failures, 39 groups), Claude (Haiku) against the rules on the same groups:**
 
@@ -148,6 +150,8 @@ Built with Claude Code. Most of the AI's mistakes surfaced the same way: run the
 | That replacement waited only for the page heading, with the default 5 s | Flaked in CI: the user data arrived in about 1 s, but by the end of a run the page renders several hundred accounts (208 KB), and the rows appeared after 5 s. The trace's failure screenshot showed them already there. | Waits for the user-list response, then allows 15 s to render; the assertion is unchanged. Caught by the dashboard's "runs failing for reasons other than a product bug" measure on its first CI run. |
 | Triage evidence quoting only `Expected: 400` | Not enough for a reviewer to decide. | Evidence now quotes the expected and received pair. |
 | A model triage answer with the reasoning "Placeholder; to be replaced after reading the test source." | The answer was unfinished, and the validation let it through. | Validation rejects unfinished reasoning; a unit test uses that exact answer. |
+| Review screen that labeled the agent's guess `proposal:` with bare category names | I was the reviewer and couldn't tell what I was approving: no rule stated, no meaning for each category, severity mixed in. | Shows the rule under test in plain words, "likely cause" with a legend of what each one triggers, and severity separately. |
+| Coverage grid tooltips: native `title` text such as "3 test(s); failed" | They appeared only after a delay and never on touch, so the live page showed nothing on hover. When they did show, they read as "3 tests failed" when only 1 had. | Each cell lists its tests and each one's result, on hover, tap, or keyboard focus. |
 | Report's by-area table, which read the risk area from test titles | UI test titles don't name an area, so all 40 UI tests were silently missing from it. Found by a review pass over the code. | Falls back to the area of the endpoint the test covers; every test is now counted. |
 
 ## Secrets

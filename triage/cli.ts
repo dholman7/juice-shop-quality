@@ -154,11 +154,12 @@ async function review(): Promise<void> {
         decision.bugId = bug.id;
       } else {
         const title = (await rl.question(`  bug title [${p.suggestedTitle ?? group.failures[0].title}]: `)).trim() || p.suggestedTitle || group.failures[0].title;
+        const severity = await askSeverity(rl, p.suggestedSeverity ?? 'medium');
         const ep = group.failures[0].endpoint;
         const created: KnownBug = {
           id: nextBugId(bugs),
           title,
-          severity: p.suggestedSeverity ?? 'medium',
+          severity,
           area: ep ? catalogEndpoint(ep).area : 'unknown',
           tests: keys,
           approvedBy: who,
@@ -174,6 +175,23 @@ async function review(): Promise<void> {
     appendFileSync(DECISIONS, `${JSON.stringify(decision)}\n`);
   }
   rl.close();
+}
+
+const SEVERITIES: readonly KnownBug['severity'][] = ['critical', 'high', 'medium', 'low'];
+
+/**
+ * The suggestion comes from the risk area; the reviewer rates the finding itself.
+ * Enter keeps the suggestion; a number or name picks another; anything else asks again.
+ */
+async function askSeverity(rl: ReturnType<typeof createInterface>, suggested: KnownBug['severity']): Promise<KnownBug['severity']> {
+  const options = SEVERITIES.map((s, n) => `${n + 1} ${s}`).join('  ');
+  for (;;) {
+    const raw = (await rl.question(`  severity (${options}) [${suggested}]: `)).trim().toLowerCase();
+    if (!raw) return suggested;
+    const picked = SEVERITIES[Number(raw) - 1] ?? SEVERITIES.find((s) => s === raw);
+    if (picked) return picked;
+    console.log('  not one of the severities listed');
+  }
 }
 
 /** Console summary after `yarn triage`: counts per proposed category. */
