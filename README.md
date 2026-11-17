@@ -28,20 +28,29 @@ yarn install --frozen-lockfile
 yarn playwright install chromium
 ```
 
-### 2. See the whole flow from scratch: demo mode
+### 2. See the review work: demo mode
 
-The repo holds a finished review (26 approved bugs), so a normal run has nothing left to decide. Demo mode starts empty, keeps its decisions in `.demo/` (git-ignored), and never changes the committed files.
+The repo holds a finished review (26 approved bugs), so a normal run has nothing left to decide. Demo mode copies that review into `.demo/` (git-ignored), undoes five decisions, and never changes the committed files. The dashboard keeps CI's real run history ([`demo/history.json`](demo/history.json)).
 
 ```bash
 yarn demo
 yarn demo:review
 ```
 
-1. `yarn demo` runs everything (about two minutes; the first run also downloads the Juice Shop and ZAP images) and ends with 75 failing tests in 41 groups and 2 medium scan findings, all undecided. Open `reports/index.html` to see them.
-2. `yarn demo:review` opens the review page at `http://127.0.0.1:4321`. Enter your name, then decide some items: pick a cause, find or file the bug (Jira key, impact, likelihood), dismiss or file a scan finding. Stop it with Ctrl+C.
-3. `yarn demo:rerun` runs again with your decisions: their tests now count as open bugs, not new failures.
+1. `yarn demo` runs everything (about two minutes; the first run also downloads the Juice Shop and ZAP images). Open `reports/index.html`: 6 new failures in 3 groups, 69 tests on open bugs, and the trend across past runs.
+2. `yarn demo:review` opens the review page at `http://127.0.0.1:4321`. Enter your name and decide the five items, one per feature:
 
-`yarn demo` again starts over from empty.
+   | Item | What to do |
+   |:--|:--|
+   | BUG-010's severity doesn't match its score | **Set to high**, or change the scores with a reason |
+   | `DELETE /api/BasketItems/:id` on another customer's item | Pick the suggested duplicate, BUG-001 |
+   | The password change response returns the password hash | No suggestion: search `hash`, pick BUG-008 |
+   | An address with an invalid name is accepted | **A new bug**: a Jira key (e.g. `SHOP-240`), a title, impact and likelihood |
+   | ZAP: wildcard CORS header | Dismiss with a reason, or file it as a bug |
+
+3. `yarn demo:rerun` runs again with your decisions: those tests now count as open bugs, not new failures. Stop the page with Ctrl+C first.
+
+`yarn demo` again starts over. The page's **Save the review** section explains what it would commit; in demo mode it commits nothing.
 
 ### 3. Run it for real
 
@@ -60,13 +69,13 @@ yarn review
 
 It exits non-zero if any test fails that is not an approved open bug, if an approved bug's test starts passing, if the scan raises a medium or high finding nobody has decided on, or if a bug's severity doesn't match its impact × likelihood score. It takes about two minutes.
 
-`yarn review` opens the same review page on the committed state: what it decides goes into `known-bugs.json`, `triage/decisions.jsonl`, and `security/zap-findings.json`, which you commit (see [the triage agent](#why-the-triage-agent-step-2)).
+`yarn review` opens the same review page on the committed state. Its decisions go into `known-bugs.json`, `triage/decisions.jsonl`, and `security/zap-findings.json`. When done, **Save the review** commits only those files (and `docs/coverage.md`), with your name in a `Reviewed-by:` line, on the current branch, and can push. No git commands needed; see [the triage agent](#why-the-triage-agent-step-2).
 
 **In CI** ([`tests.yml`](.github/workflows/tests.yml)): every pull request, push to `main`, and nightly run (07:00 UTC) runs the typecheck, unit tests, and `yarn all`, and uploads the report as a build artifact. Runs on `main` also publish it to GitHub Pages, carrying `history.json` forward so the trend builds without a database.
 
 | Command | What it does |
 |:--|:--|
-| `yarn demo`, `demo:review`, `demo:rerun` | Demo mode: the whole flow from an empty review, kept in `.demo/`; the committed files are untouched |
+| `yarn demo`, `demo:review`, `demo:rerun` | Demo mode: the committed review with five decisions undone, in `.demo/`, with CI's run history; the committed files are untouched |
 | `yarn review` | **The review, on a local web page** (opens `http://127.0.0.1:4321`): severity check, failure groups, and scan findings, with the same rules and files as the terminal reviews below. Stop with Ctrl+C. |
 | `yarn app:up` / `app:down` | Fresh Juice Shop with per-worker staff test accounts / remove it |
 | `yarn test`, `yarn test:api`, `yarn test:ui` | Playwright only, against the running app |

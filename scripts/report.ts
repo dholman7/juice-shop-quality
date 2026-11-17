@@ -199,7 +199,7 @@ th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;verti
 .trend{color:var(--accent);width:140px}.spark{display:block}tbody th{font-weight:600}.legend{color:var(--muted);font-size:13px}.demo{background:#fdf1d8;color:var(--warn);padding:8px 12px;border-radius:6px}a{color:var(--accent)}
 </style></head><body><main>
 <h1>Juice Shop Dashboard</h1>
-${isDemo() ? '<p class="demo">Demo: review state is in <code>.demo/</code>, starting empty. The committed review is untouched.</p>' : ''}
+${isDemo() ? '<p class="demo">Demo: review state is in <code>.demo/</code>, a copy of the committed review with a few decisions undone. The committed review is untouched.</p>' : ''}
 <p class="sub">${esc(new Date(stats.startTime).toLocaleString())} · ${(stats.duration / 1000).toFixed(0)} s · ${rows.length} tests · <a href="playwright/index.html">Playwright report with traces</a> · <a href="${process.env.GITHUB_REPOSITORY ? `${process.env.GITHUB_SERVER_URL ?? 'https://github.com'}/${process.env.GITHUB_REPOSITORY}/blob/main/docs/coverage.md` : '../docs/coverage.md'}">coverage map</a></p>
 <section class="tiles">${tiles.map(([label, n, tone]) => `<div class="tile ${tone}"><b>${n}</b>${label}</div>`).join('')}</section>
 

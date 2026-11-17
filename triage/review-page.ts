@@ -4,11 +4,12 @@
  *   yarn review     starts on http://127.0.0.1:4321 and opens the browser; Ctrl+C stops it
  *
  * Same decisions and files as the terminal reviews: severity check, failure groups, ZAP findings.
+ * "Save the review" commits the review files (and can push), so a tester needs no git commands.
  * Listens on this machine only, and accepts changes only from its own page.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadKnownBugs, rescore, severityFor, severityMismatches, isScore } from '../src/known-bugs';
 import { findCandidates, searchBugs } from './duplicates';
@@ -20,6 +21,9 @@ import { readSummary, recordDecision, undecided } from '../security/zap';
 import { isDemo } from '../src/review-state';
 
 const PORT = Number(process.env.REVIEW_PORT ?? 4321);
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+/** What a review changes, and all "Save the review" ever commits. */
+const REVIEW_FILES = ['known-bugs.json', 'triage/decisions.jsonl', 'security/zap-findings.json', 'docs/coverage.md'];
 const PAGE = fileURLToPath(new URL('./review-page.html', import.meta.url));
 
 class BadRequest extends Error {}
@@ -69,12 +73,13 @@ function state() {
     scoreHelp: SCORE_HELP,
     openBugs: bugs.length,
     demo: isDemo(),
+    git: gitState(),
   };
 }
 
 function who(body: Record<string, unknown>): string {
   const name = typeof body.reviewer === 'string' ? body.reviewer.trim() : '';
-  if (!name || name.length > 80) throw new BadRequest('enter your name as the reviewer');
+  if (!name || name.length > 80 || /[\r\n]/.test(name)) throw new BadRequest('enter your name as the reviewer');
   return name;
 }
 
@@ -117,7 +122,7 @@ function rescoreBug(body: Record<string, unknown>): string {
   if (!bug) throw new BadRequest(`no open bug ${String(body.bugId)}`);
   const updated = rescore(bug, Number(body.impact), Number(body.likelihood), String(body.reason ?? ''), reviewerName, today());
   saveBugs(bugs.map((b) => (b.id === bug.id ? updated : b)));
-  return `${bug.id}: ${bug.severity} → ${updated.severity}`;
+  return updated.severity === bug.severity ? `${bug.id}: scores recorded, still ${bug.severity}` : `${bug.id}: ${bug.severity} → ${updated.severity}`;
 }
 
 /** A ZAP finding: file it as a bug, or dismiss it with a reason. */
@@ -131,10 +136,61 @@ function decideFinding(body: Record<string, unknown>): string {
   return body.verdict === 'bug' ? 'filed as an open security bug' : 'dismissed';
 }
 
+/** Git without a shell; a push that would ask for a password fails instead of hanging. */
+function git(args: string[]): { ok: boolean; out: string } {
+  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', timeout: 60_000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+  return { ok: r.status === 0, out: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim() };
+}
+
+/**
+ * The branch, which review files have uncommitted changes, and how many commits aren't pushed
+ * (undefined with no upstream). Undefined outside a git checkout.
+ */
+function gitState(): { branch: string; changed: string[]; unpushed?: number } | undefined {
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+  if (!branch.ok) return undefined;
+  const ahead = git(['rev-list', '--count', '@{upstream}..HEAD']);
+  return {
+    branch: branch.out,
+    changed: REVIEW_FILES.filter((file) => git(['status', '--porcelain', '--', file]).out !== ''),
+    unpushed: ahead.ok ? Number(ahead.out) : undefined,
+  };
+}
+
+/** Commits the changed review files, and nothing else, with the reviewer's name; pushes if asked. */
+function saveReview(body: Record<string, unknown>): string {
+  if (isDemo()) throw new BadRequest('demo mode: decisions stay in .demo/ and are not committed');
+  const reviewerName = who(body);
+  const state = gitState();
+  if (!state) throw new BadRequest('not a git checkout');
+  if (!state.changed.length) throw new BadRequest('no review changes to commit');
+  const message = typeof body.message === 'string' ? body.message.trim() : '';
+  if (!message) throw new BadRequest('enter a commit message');
+  const commit = git(['commit', '-m', message, '-m', `Reviewed-by: ${reviewerName}`, '--', ...state.changed]);
+  if (!commit.ok) throw new BadRequest(`git commit failed: ${commit.out}`);
+  const sha = git(['rev-parse', '--short', 'HEAD']).out;
+  if (body.push !== true) return `committed ${sha} on ${state.branch}`;
+  const push = git(['push']);
+  if (!push.ok) throw new BadRequest(`committed ${sha}, but the push failed: ${push.out}`);
+  return `committed ${sha} and pushed ${state.branch}`;
+}
+
+/** Pushes the current branch: the retry after a commit whose push failed. */
+function pushReview(): string {
+  if (isDemo()) throw new BadRequest('demo mode: nothing is committed, so nothing to push');
+  const state = gitState();
+  if (!state) throw new BadRequest('not a git checkout');
+  const push = git(['push']);
+  if (!push.ok) throw new BadRequest(`the push failed: ${push.out}`);
+  return `pushed ${state.branch}`;
+}
+
 const ACTIONS: Record<string, (body: Record<string, unknown>) => string> = {
   '/api/decide': decide,
   '/api/rescore': rescoreBug,
   '/api/zap': decideFinding,
+  '/api/commit': saveReview,
+  '/api/push': pushReview,
 };
 
 function send(res: ServerResponse, status: number, body: unknown, type = 'application/json'): void {

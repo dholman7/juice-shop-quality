@@ -47,17 +47,17 @@ spawnSync('yarn', ['-s', 'playwright', 'test'], { stdio: 'inherit' });
 const run = propose();
 mkdirSync('reports', { recursive: true });
 // Add this run to reports/history.json, then build the report from the full history (for the trends).
-// A demo run changes nothing committed or carried forward: no history entry, no coverage map.
-writeFileSync('reports/index.html', buildReport(isDemo() ? undefined : recordRun(summarize())));
+// A demo run records its history in .demo/ and leaves the committed coverage map alone.
+writeFileSync('reports/index.html', buildReport(recordRun(summarize())));
 if (!isDemo()) writeFileSync('docs/coverage.md', coverageMarkdown(readRows().rows));
 
 const { rows } = readRows();
 const n = (r: string) => rows.filter((x) => x.result === r).length;
 console.log(`\n${n('passed')} passed · ${n('failed')} new failures · ${n('known-bug')} open bugs · ${n('flaky')} flaky · ${n('skipped')} skipped`);
-console.log(`Triage: ${run.groups.length} group(s) proposed (${run.provider}). Review with \`yarn review\` (a local page) or \`yarn triage:review\`.`);
+console.log(`Triage: ${run.groups.length} group(s) proposed (${run.provider}). Review with \`${isDemo() ? 'yarn demo:review' : 'yarn review'}\` (a local page).`);
 if (zap) printSummary(zap);
 const offScore = severityMismatches(loadKnownBugs());
-if (offScore.length) console.log(`Severity: ${offScore.map((b) => b.id).join(', ')} don't match impact × likelihood. Fix with \`yarn review\`.`);
+if (offScore.length) console.log(`Severity not matching impact × likelihood: ${offScore.map((b) => b.id).join(', ')}. Fix on the review page.`);
 console.log('Report: reports/index.html');
 if (isDemo()) {
   console.log('\nDemo: decide on the page with `yarn demo:review`, then `yarn demo:rerun` runs again with those decisions.');

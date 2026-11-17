@@ -12,7 +12,6 @@ import { readRows } from './results';
 import type { TriageRun } from '../triage/cli';
 import type { Decision } from '../triage/types';
 
-export const HISTORY = 'reports/history.json';
 const KEEP = 200;
 
 export interface RunSummary {
@@ -93,7 +92,7 @@ export function summarize(): RunSummary {
   };
 }
 
-export function readHistory(path = HISTORY): RunSummary[] {
+export function readHistory(path = statePath('history')): RunSummary[] {
   try {
     const data = JSON.parse(readFileSync(path, 'utf8'));
     return Array.isArray(data) ? data : [];
@@ -103,7 +102,7 @@ export function readHistory(path = HISTORY): RunSummary[] {
 }
 
 /** Adds this run (replacing an earlier entry for the same run) and keeps the newest KEEP runs. */
-export function recordRun(run: RunSummary, path = HISTORY, keep = KEEP): RunSummary[] {
+export function recordRun(run: RunSummary, path = statePath('history'), keep = KEEP): RunSummary[] {
   const history = [...readHistory(path).filter((r) => r.at !== run.at), run]
     .sort((a, b) => a.at.localeCompare(b.at))
     .slice(-keep);

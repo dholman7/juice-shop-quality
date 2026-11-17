@@ -81,7 +81,7 @@ function h(tag, attrs, ...kids) {
     else if (v === true) el.setAttribute(k, '');
     else el.setAttribute(k, v);
   }
-  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid instanceof Node ? kid : String(kid));
+  for (const kid of kids.flat(Infinity)) if (kid !== null && kid !== undefined && kid !== false) el.append(kid instanceof Node ? kid : String(kid));
   return el;
 }
 const pill = (sev) => h('span', { class: `pill sev-${sev}` }, sev);
@@ -102,7 +102,13 @@ async function post(path, body, msgEl) {
   try {
     const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, reviewer: reviewerName() }) });
     const out = await res.json();
-    if (!res.ok) return show(msgEl, out.error || 'Not recorded.', true);
+    if (!res.ok) {
+      show(msgEl, out.error || 'Not recorded.', true);
+      // A commit can land even when its push fails; refresh so the page offers the push again.
+      if (path === '/api/commit') await load();
+      return;
+    }
+    msgEl.textContent = '';
     toast(out.message);
     await load();
   } catch (e) {
@@ -150,7 +156,7 @@ function severityCard(b) {
     change, msg);
 }
 
-function groupCard(g, n, total) {
+function groupCard(g) {
   const msg = h('div', { class: 'msg' });
   const name = `cause-${g.groupId}`;
   const causes = h('fieldset', {}, h('legend', {}, 'What is it?'),
@@ -165,7 +171,7 @@ function groupCard(g, n, total) {
     ? h('details', {}, h('summary', {}, `${g.tests.length} tests`), h('pre', {}, g.tests.join('\n')))
     : h('code', {}, g.tests[0]);
   return h('div', { class: 'card' },
-    h('h3', {}, `Group ${n} of ${total} · ${g.tests.length} failing test${g.tests.length > 1 ? 's' : ''}, one shared defect`),
+    h('h3', { class: 'gtitle' }),
     h('dl', { class: 'kv' },
       h('dt', {}, 'Rule'), h('dd', {}, g.rule),
       h('dt', {}, 'Evidence'), h('dd', {}, h('pre', {}, g.evidence)),
@@ -241,8 +247,40 @@ function findingCard(f) {
     msg);
 }
 
+// Commits the review files with the reviewer's name, and can push, so a tester needs no git commands.
+// One message element for the section, so a save's result stays on screen after the page refreshes.
+const saveMsg = h('div', { class: 'msg' });
+function saveSection() {
+  if (!S.git) return [];
+  const title = h('h2', {}, 'Save the review');
+  if (S.demo) return [title, h('p', { class: 'sub' }, `In a real review, this commits the review files on branch ${S.git.branch} and can push them. In demo mode, decisions stay in .demo/ and nothing is committed.`)];
+  if (!S.git.changed.length && !S.git.unpushed) return [title, h('p', { class: 'sub' }, `Nothing to save: the review files have no changes on branch ${S.git.branch}.`), saveMsg];
+  const msg = saveMsg;
+  if (!S.git.changed.length && S.git.unpushed) return [title,
+    h('div', { class: 'card' }, h('p', {}, `${S.git.unpushed} commit${S.git.unpushed > 1 ? 's' : ''} on `, h('b', {}, S.git.branch), ' not pushed yet.'),
+      h('div', { class: 'row' }, h('button', { class: 'primary', onclick: () => post('/api/push', {}, msg) }, 'Push')), msg)];
+  const message = h('input', { type: 'text', value: `chore: record review by ${reviewerName() || S.reviewer}` });
+  const save = (push) => post('/api/commit', { message: message.value, push }, msg);
+  return [title,
+    h('p', { class: 'sub' }, 'Commits only these files, on branch ', h('b', {}, S.git.branch), ', with your name. Run ', h('code', {}, 'yarn all'), ' first if you can: it should exit 0.'),
+    h('div', { class: 'card' },
+      h('ul', {}, S.git.changed.map((f) => h('li', {}, h('code', {}, f)))),
+      h('label', {}, 'Commit message'), message,
+      h('div', { class: 'row' },
+        h('button', { class: 'primary', onclick: () => save(true) }, 'Commit and push'),
+        h('button', { onclick: () => save(false) }, 'Commit only')),
+      msg)];
+}
+
 function section(title, sub, items) {
   return [h('h2', {}, title), h('p', { class: 'sub' }, sub), ...(items.length ? items : [h('p', { class: 'empty' }, 'Nothing to decide.')])];
+}
+
+// Cards are kept between renders, so text typed in one card survives a decision recorded in another.
+const cards = new Map();
+function kept(key, make) {
+  if (!cards.has(key)) cards.set(key, make());
+  return cards.get(key);
 }
 
 function render() {
@@ -251,15 +289,21 @@ function render() {
   const zap = S.zap || [];
   const left = S.severity.length + groups.length + zap.length;
   app.replaceChildren(
-    S.demo ? h('p', { class: 'card demo' }, h('b', {}, 'Demo. '), 'Decisions go to .demo/, which starts empty; the committed review is untouched. ', h('code', {}, 'yarn demo:rerun'), ' shows the result.') : '',
+    S.demo ? h('p', { class: 'card demo' }, h('b', {}, 'Demo. '), 'A copy of the committed review with a few decisions undone, in .demo/. The committed review is untouched. ', h('code', {}, 'yarn demo:rerun'), ' shows the result.') : '',
     left ? h('p', {}, `${left} item${left > 1 ? 's' : ''} to decide.${later.size ? ` ${later.size} left for later.` : ''}`)
       : h('div', { class: 'card done' }, h('h3', {}, 'All decided.'),
-        h('p', {}, 'Run ', h('code', {}, 'yarn all'), ' to confirm it passes, then commit ', h('code', {}, 'known-bugs.json'), ', ',
-          h('code', {}, 'triage/decisions.jsonl'), ', ', h('code', {}, 'security/zap-findings.json'), ' and ', h('code', {}, 'docs/coverage.md'), '.')),
-    ...(S.severity.length ? section('Severity check', 'Severity is impact × likelihood: 20+ critical, 12+ high, 6+ medium, else low. These bugs don\'t match their score, so the run fails until they do.', S.severity.map(severityCard)) : []),
-    ...section('Failure groups', S.hasProposals ? 'Each group is one defect, seen by one or more failing tests. Is the rule right, and does the evidence show it broken?' : 'No triage results yet: run yarn all first.', groups.map((g, i) => groupCard(g, i + 1, groups.length))),
-    ...(S.zap ? section('Security scan findings', 'New medium and high findings from the ZAP scan. Each fails the run until filed or dismissed.', zap.map(findingCard)) : []),
+        h('p', {}, S.demo ? ['Run ', h('code', {}, 'yarn demo:rerun'), ' to see the decided tests count as open bugs.'] : ['Run ', h('code', {}, 'yarn all'), ' to confirm it passes, then save the review below.'])),
+    ...(S.severity.length ? section('Severity check', 'Severity is impact × likelihood: 20+ critical, 12+ high, 6+ medium, else low. These bugs don\'t match their score, so the run fails until they do.', S.severity.map((b) => kept(`s:${b.id}:${b.severity}`, () => severityCard(b)))) : []),
+    ...section('Failure groups', S.hasProposals ? 'Each group is one defect, seen by one or more failing tests. Is the rule right, and does the evidence show it broken?' : 'No triage results yet: run yarn all first.', groups.map((g, i) => {
+      const card = kept(`g:${g.groupId}`, () => groupCard(g));
+      card.querySelector('.gtitle').textContent = `Group ${i + 1} of ${groups.length} · ${g.tests.length} failing test${g.tests.length > 1 ? 's' : ''}, one shared defect`;
+      return card;
+    })),
+    ...(S.zap ? section('Security scan findings', 'New medium and high findings from the ZAP scan. Each fails the run until filed or dismissed.', zap.map((f) => kept(`z:${f.ref}:${f.risk}`, () => findingCard(f)))) : []),
+    ...saveSection(),
   );
+  const shown = new Set([...S.severity.map((b) => `s:${b.id}:${b.severity}`), ...S.groups.map((g) => `g:${g.groupId}`), ...(S.zap || []).map((f) => `z:${f.ref}:${f.risk}`)]);
+  for (const key of cards.keys()) if (!shown.has(key)) cards.delete(key);
 }
 
 async function load() {

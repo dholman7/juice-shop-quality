@@ -22,7 +22,7 @@
     "coverage:map": "tsx scripts/coverage-map.ts",
     "all": "tsx scripts/run-all.ts",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --test --import tsx triage/triage.test.ts scripts/history.test.ts src/passkey.test.ts security/zap.test.ts"
+    "test:unit": "node --test --import tsx triage/triage.test.ts scripts/history.test.ts src/passkey.test.ts security/zap.test.ts scripts/demo-seed.test.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

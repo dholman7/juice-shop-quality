@@ -1,0 +1,272 @@
+[
+  {
+    "at": "2026-11-17T07:26:28.071Z",
+    "commit": "fa357e0",
+    "source": "ci",
+    "durationS": 123,
+    "tests": 527,
+    "passed": 441,
+    "newFailures": 73,
+    "openBugs": 0,
+    "flaky": 0,
+    "fixed": 0,
+    "skipped": 13,
+    "nonProductFailures": 0,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 64,
+      "checks": 340,
+      "checksRun": 328
+    },
+    "bugsBySeverity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "triage": {
+      "decided": 0,
+      "acceptedUnchanged": 0
+    }
+  },
+  {
+    "at": "2026-11-17T08:07:42.985Z",
+    "commit": "82b5f39",
+    "source": "ci",
+    "durationS": 82,
+    "tests": 530,
+    "passed": 451,
+    "newFailures": 75,
+    "openBugs": 0,
+    "flaky": 0,
+    "fixed": 0,
+    "skipped": 4,
+    "nonProductFailures": 0,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 66,
+      "checks": 340,
+      "checksRun": 336
+    },
+    "bugsBySeverity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "triage": {
+      "decided": 0,
+      "acceptedUnchanged": 0
+    }
+  },
+  {
+    "at": "2026-11-17T08:44:03.395Z",
+    "commit": "b77b72c",
+    "source": "ci",
+    "durationS": 106,
+    "tests": 530,
+    "passed": 451,
+    "newFailures": 75,
+    "openBugs": 0,
+    "flaky": 0,
+    "fixed": 0,
+    "skipped": 4,
+    "nonProductFailures": 0,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 66,
+      "checks": 340,
+      "checksRun": 336
+    },
+    "bugsBySeverity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "triage": {
+      "decided": 0,
+      "acceptedUnchanged": 0
+    }
+  },
+  {
+    "at": "2026-11-17T09:15:00.146Z",
+    "commit": "46f05c6",
+    "source": "ci",
+    "durationS": 139,
+    "tests": 530,
+    "passed": 450,
+    "newFailures": 75,
+    "openBugs": 0,
+    "flaky": 1,
+    "fixed": 0,
+    "skipped": 4,
+    "nonProductFailures": 1,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 66,
+      "checks": 340,
+      "checksRun": 336
+    },
+    "bugsBySeverity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "triage": {
+      "decided": 0,
+      "acceptedUnchanged": 0
+    }
+  },
+  {
+    "at": "2026-11-17T16:41:57.906Z",
+    "commit": "37d2eb9",
+    "source": "ci",
+    "durationS": 103,
+    "tests": 530,
+    "passed": 451,
+    "newFailures": 75,
+    "openBugs": 0,
+    "flaky": 0,
+    "fixed": 0,
+    "skipped": 4,
+    "nonProductFailures": 0,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 66,
+      "checks": 340,
+      "checksRun": 336
+    },
+    "bugsBySeverity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "triage": {
+      "decided": 0,
+      "acceptedUnchanged": 0
+    }
+  },
+  {
+    "at": "2026-11-17T17:04:08.906Z",
+    "commit": "fc2e4ef",
+    "source": "ci",
+    "durationS": 128,
+    "tests": 530,
+    "passed": 451,
+    "newFailures": 75,
+    "openBugs": 0,
+    "flaky": 0,
+    "fixed": 0,
+    "skipped": 4,
+    "nonProductFailures": 0,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 66,
+      "checks": 340,
+      "checksRun": 336
+    },
+    "bugsBySeverity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "triage": {
+      "decided": 0,
+      "acceptedUnchanged": 0
+    }
+  },
+  {
+    "at": "2026-11-17T18:34:29.408Z",
+    "commit": "a0260e1",
+    "source": "ci",
+    "durationS": 110,
+    "tests": 530,
+    "passed": 451,
+    "newFailures": 75,
+    "openBugs": 0,
+    "flaky": 0,
+    "fixed": 0,
+    "skipped": 4,
+    "nonProductFailures": 0,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 66,
+      "checks": 340,
+      "checksRun": 336
+    },
+    "bugsBySeverity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "triage": {
+      "decided": 0,
+      "acceptedUnchanged": 0
+    }
+  },
+  {
+    "at": "2026-11-17T20:02:08.849Z",
+    "commit": "b9209e5",
+    "source": "ci",
+    "durationS": 81,
+    "tests": 532,
+    "passed": 453,
+    "newFailures": 2,
+    "openBugs": 73,
+    "flaky": 0,
+    "fixed": 0,
+    "skipped": 4,
+    "nonProductFailures": 0,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 66,
+      "checks": 340,
+      "checksRun": 336
+    },
+    "bugsBySeverity": {
+      "critical": 11,
+      "high": 9,
+      "medium": 3,
+      "low": 3
+    },
+    "triage": {
+      "decided": 41,
+      "acceptedUnchanged": 41
+    }
+  },
+  {
+    "at": "2026-11-17T23:20:47.933Z",
+    "commit": "3e543a6",
+    "source": "ci",
+    "durationS": 84,
+    "tests": 532,
+    "passed": 453,
+    "newFailures": 0,
+    "openBugs": 75,
+    "flaky": 0,
+    "fixed": 0,
+    "skipped": 4,
+    "nonProductFailures": 0,
+    "endpoints": {
+      "total": 68,
+      "everyRole": 66,
+      "checks": 340,
+      "checksRun": 336
+    },
+    "bugsBySeverity": {
+      "critical": 11,
+      "high": 10,
+      "medium": 2,
+      "low": 3
+    },
+    "triage": {
+      "decided": 43,
+      "acceptedUnchanged": 43
+    }
+  }
+]
