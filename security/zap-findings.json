@@ -1,3 +1,22 @@
 {
-  "findings": []
+  "findings": [
+    {
+      "ref": "10038-1",
+      "name": "Content Security Policy (CSP) Header Not Set",
+      "risk": "medium",
+      "verdict": "bug",
+      "reason": "No Content-Security-Policy on any page; raises the impact of any script injection.",
+      "decidedBy": "John Q Tester",
+      "decidedOn": "2026-11-17"
+    },
+    {
+      "ref": "10098",
+      "name": "Cross-Domain Misconfiguration",
+      "risk": "medium",
+      "verdict": "dismissed",
+      "reason": "No Access-Control-Allow-Credentials, and sign-in is a bearer token another site cannot read, so only public data is readable cross-origin. Revisit if cookie sign-in is added.",
+      "decidedBy": "John Q Tester",
+      "decidedOn": "2026-11-17"
+    }
+  ]
 }

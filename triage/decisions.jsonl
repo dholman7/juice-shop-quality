@@ -1,0 +1,41 @@
+{"groupId":"G-deb312d9","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:28:00.000Z","bugId":"BUG-001","title":"Any signed-in user can list, read, change, and delete other customers' basket items"}
+{"groupId":"G-297633d9","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:28:40.000Z","bugId":"BUG-002","title":"Some calls without a session fail with 500 instead of 401"}
+{"groupId":"G-6ab92267","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:29:20.000Z","bugId":"BUG-003","title":"Any signed-in user can read any user record, the full user list, and login details"}
+{"groupId":"G-647c3967","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:30:00.000Z","bugId":"BUG-003"}
+{"groupId":"G-c2f6a87c","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:30:40.000Z","bugId":"BUG-004","title":"Non-admins can create products"}
+{"groupId":"G-ce746476","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:31:20.000Z","bugId":"BUG-005","title":"Anyone, even signed out, can change a product's price"}
+{"groupId":"G-11aaa357","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:32:00.000Z","bugId":"BUG-002"}
+{"groupId":"G-08e31846","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:32:40.000Z","bugId":"BUG-006","title":"Sign-up accepts role: admin"}
+{"groupId":"G-f7a78033","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:33:20.000Z","bugId":"BUG-007","title":"Sign-up accepts mismatched passwords"}
+{"groupId":"G-2ebcd3b0","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:34:00.000Z","bugId":"BUG-008","title":"The password hash is in the session token and in API responses"}
+{"groupId":"G-da32582c","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:34:40.000Z","bugId":"BUG-009","title":"SQL injection in the login email signs in as admin"}
+{"groupId":"G-737186b5","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:35:20.000Z","bugId":"BUG-010","title":"No rate limit on wrong passwords"}
+{"groupId":"G-1ce3fcf0","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:36:00.000Z","bugId":"BUG-011","title":"Unsigned session tokens (alg: none) are accepted"}
+{"groupId":"G-76a2104c","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:36:40.000Z","bugId":"BUG-008"}
+{"groupId":"G-3052a666","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:37:20.000Z","bugId":"BUG-012","title":"Passkey sign-in ignores the signature"}
+{"groupId":"G-38d7b223","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:38:00.000Z","bugId":"BUG-013","title":"Registering another account's passkey credential id takes it over"}
+{"groupId":"G-71b5863d","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:38:40.000Z","bugId":"BUG-014","title":"Changing the password does not require the current one"}
+{"groupId":"G-755669dd","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:39:20.000Z","bugId":"BUG-008"}
+{"groupId":"G-260132b1","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:40:00.000Z","bugId":"BUG-002"}
+{"groupId":"G-f6336985","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:40:40.000Z","bugId":"BUG-008"}
+{"groupId":"G-d89ec6fa","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:41:20.000Z","bugId":"BUG-015","title":"Checkout accepts an empty basket and orders with no address or payment"}
+{"groupId":"G-945e6be2","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:42:00.000Z","bugId":"BUG-015"}
+{"groupId":"G-e8e60ee8","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:42:40.000Z","bugId":"BUG-016","title":"Zero and negative quantities are accepted, producing negative order totals"}
+{"groupId":"G-cbbc314a","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:43:20.000Z","bugId":"BUG-017","title":"Negative wallet top-ups are accepted"}
+{"groupId":"G-b418915c","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:44:00.000Z","bugId":"BUG-018","title":"Deluxe membership is granted without payment"}
+{"groupId":"G-426a8a03","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:44:40.000Z","bugId":"BUG-019","title":"The token issued at deluxe upgrade cannot use the basket until the customer logs in again"}
+{"groupId":"G-741d6f9b","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:45:20.000Z","bugId":"BUG-016"}
+{"groupId":"G-a45ea7ca","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:46:00.000Z","bugId":"BUG-016"}
+{"groupId":"G-01a13b42","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:46:40.000Z","bugId":"BUG-020","title":"An address with no name is accepted"}
+{"groupId":"G-a8e4b84d","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:47:20.000Z","bugId":"BUG-021","title":"Saving a card echoes the full card number"}
+{"groupId":"G-edc83ba7","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:48:00.000Z","bugId":"BUG-022","title":"The data export CAPTCHA returns its own answer and can be skipped"}
+{"groupId":"G-6f887933","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:48:40.000Z","bugId":"BUG-022"}
+{"groupId":"G-9618551f","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:49:20.000Z","bugId":"BUG-023","title":"Any signed-in user can read any customer's basket by id"}
+{"groupId":"G-4f715b9e","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:50:00.000Z","bugId":"BUG-001"}
+{"groupId":"G-65b6f570","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:50:40.000Z","bugId":"BUG-001"}
+{"groupId":"G-0d53bffa","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:51:20.000Z","bugId":"BUG-001"}
+{"groupId":"G-20cf8ef3","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:52:00.000Z","bugId":"BUG-024","title":"Updating another customer's address succeeds and moves it to the caller's account"}
+{"groupId":"G-e91963fe","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:52:40.000Z","bugId":"BUG-003"}
+{"groupId":"G-61cb936a","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:53:20.000Z","bugId":"BUG-025","title":"Any signed-in user can apply a coupon to, or check out, another customer's basket"}
+{"groupId":"G-6a1923ca","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:54:00.000Z","bugId":"BUG-025"}
+{"groupId":"G-26faaf1e","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:54:40.000Z","bugId":"BUG-026","title":"Sending BasketId twice adds items to another customer's basket"}

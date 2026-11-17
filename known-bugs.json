@@ -1,3 +1,429 @@
 {
-  "bugs": []
+  "bugs": [
+    {
+      "id": "BUG-001",
+      "title": "Any signed-in user can list, read, change, and delete other customers' basket items",
+      "severity": "critical",
+      "area": "R1",
+      "tests": [
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /api/BasketItems › refuses customer",
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /api/BasketItems › refuses deluxe",
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /api/BasketItems › refuses accounting",
+        "api/isolation.spec.ts › R1 isolation › GET /api/BasketItems/:id on another customer's record › refuses customer",
+        "api/isolation.spec.ts › R1 isolation › GET /api/BasketItems/:id on another customer's record › refuses deluxe",
+        "api/isolation.spec.ts › R1 isolation › GET /api/BasketItems/:id on another customer's record › refuses accounting",
+        "api/isolation.spec.ts › R1 isolation › GET /api/BasketItems/:id on another customer's record › refuses admin",
+        "api/isolation.spec.ts › R1 isolation › PUT /api/BasketItems/:id on another customer's record › refuses customer",
+        "api/isolation.spec.ts › R1 isolation › PUT /api/BasketItems/:id on another customer's record › refuses deluxe",
+        "api/isolation.spec.ts › R1 isolation › PUT /api/BasketItems/:id on another customer's record › refuses accounting",
+        "api/isolation.spec.ts › R1 isolation › PUT /api/BasketItems/:id on another customer's record › refuses admin",
+        "api/isolation.spec.ts › R1 isolation › DELETE /api/BasketItems/:id on another customer's record › refuses customer",
+        "api/isolation.spec.ts › R1 isolation › DELETE /api/BasketItems/:id on another customer's record › refuses deluxe",
+        "api/isolation.spec.ts › R1 isolation › DELETE /api/BasketItems/:id on another customer's record › refuses accounting",
+        "api/isolation.spec.ts › R1 isolation › DELETE /api/BasketItems/:id on another customer's record › refuses admin"
+      ],
+      "endpoints": [
+        "basketItems.delete",
+        "basketItems.get",
+        "basketItems.list",
+        "basketItems.update"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-002",
+      "title": "Some calls without a session fail with 500 instead of 401",
+      "severity": "low",
+      "area": "R1",
+      "tests": [
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /rest/order-history › refuses anonymous",
+        "api/access-matrix.spec.ts › R3 Login and account security › GET /rest/user/change-password › refuses anonymous",
+        "api/auth.spec.ts › R3 passwords › changing the password is refused without a session"
+      ],
+      "endpoints": [
+        "orders.history",
+        "password.change"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-003",
+      "title": "Any signed-in user can read any user record, the full user list, and login details",
+      "severity": "high",
+      "area": "R1",
+      "tests": [
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /api/Users › refuses customer",
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /api/Users › refuses deluxe",
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /api/Users › refuses accounting",
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /rest/user/authentication-details › refuses customer",
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /rest/user/authentication-details › refuses deluxe",
+        "api/access-matrix.spec.ts › R1 Customer data isolation › GET /rest/user/authentication-details › refuses accounting",
+        "api/isolation.spec.ts › R1 isolation › GET /api/Users/:id on another customer's record › refuses customer",
+        "api/isolation.spec.ts › R1 isolation › GET /api/Users/:id on another customer's record › refuses deluxe",
+        "api/isolation.spec.ts › R1 isolation › GET /api/Users/:id on another customer's record › refuses accounting"
+      ],
+      "endpoints": [
+        "users.authDetails",
+        "users.get",
+        "users.list"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-004",
+      "title": "Non-admins can create products",
+      "severity": "high",
+      "area": "R2",
+      "tests": [
+        "api/access-matrix.spec.ts › R2 Checkout and payment › POST /api/Products › refuses customer",
+        "api/access-matrix.spec.ts › R2 Checkout and payment › POST /api/Products › refuses deluxe",
+        "api/access-matrix.spec.ts › R2 Checkout and payment › POST /api/Products › refuses accounting"
+      ],
+      "endpoints": [
+        "products.create"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-005",
+      "title": "Anyone, even signed out, can change a product's price",
+      "severity": "critical",
+      "area": "R2",
+      "tests": [
+        "api/access-matrix.spec.ts › R2 Checkout and payment › PUT /api/Products/:id › refuses anonymous",
+        "api/access-matrix.spec.ts › R2 Checkout and payment › PUT /api/Products/:id › refuses customer",
+        "api/access-matrix.spec.ts › R2 Checkout and payment › PUT /api/Products/:id › refuses deluxe",
+        "api/access-matrix.spec.ts › R2 Checkout and payment › PUT /api/Products/:id › refuses accounting"
+      ],
+      "endpoints": [
+        "products.update"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-006",
+      "title": "Sign-up accepts role: admin",
+      "severity": "critical",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 sign-up › ignores a role sent with the sign-up form"
+      ],
+      "endpoints": [
+        "users.register"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-007",
+      "title": "Sign-up accepts mismatched passwords",
+      "severity": "low",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 sign-up › rejects passwords that do not match"
+      ],
+      "endpoints": [
+        "users.register"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-008",
+      "title": "The password hash is in the session token and in API responses",
+      "severity": "high",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 login › the session token does not carry the password hash",
+        "api/auth.spec.ts › R3 login › records the login IP without returning the password hash",
+        "api/auth.spec.ts › R3 passwords › a changed password works and the old one stops working",
+        "api/auth.spec.ts › R3 passwords › reset with the right security answer sets a new password"
+      ],
+      "endpoints": [
+        "auth.login",
+        "auth.saveLoginIp",
+        "password.change",
+        "password.reset"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-009",
+      "title": "SQL injection in the login email signs in as admin",
+      "severity": "critical",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 login › is not fooled by SQL in the email field"
+      ],
+      "endpoints": [
+        "auth.login"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-010",
+      "title": "No rate limit on wrong passwords",
+      "severity": "medium",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 login › slows down repeated wrong passwords for one account"
+      ],
+      "endpoints": [
+        "auth.login"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-011",
+      "title": "Unsigned session tokens (alg: none) are accepted",
+      "severity": "critical",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 login › rejects a session token that is not signed"
+      ],
+      "endpoints": [
+        "basket.get"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-012",
+      "title": "Passkey sign-in ignores the signature",
+      "severity": "critical",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 passkeys › a sign-in signed by the wrong key is refused"
+      ],
+      "endpoints": [
+        "passkey.loginVerify"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-013",
+      "title": "Registering another account's passkey credential id takes it over",
+      "severity": "critical",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 passkeys › another customer's credential id cannot be registered again"
+      ],
+      "endpoints": [
+        "passkey.registerVerify"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-014",
+      "title": "Changing the password does not require the current one",
+      "severity": "high",
+      "area": "R3",
+      "tests": [
+        "api/auth.spec.ts › R3 passwords › changing the password requires the current password"
+      ],
+      "endpoints": [
+        "password.change"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-015",
+      "title": "Checkout accepts an empty basket and orders with no address or payment",
+      "severity": "high",
+      "area": "R2",
+      "tests": [
+        "api/checkout.spec.ts › R2 checkout › refuses to check out an empty basket",
+        "api/checkout.spec.ts › R2 checkout › refuses an order without a delivery address and payment method"
+      ],
+      "endpoints": [
+        "basket.checkout"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-016",
+      "title": "Zero and negative quantities are accepted, producing negative order totals",
+      "severity": "high",
+      "area": "R2",
+      "tests": [
+        "api/checkout.spec.ts › R2 checkout › refuses a negative quantity at checkout",
+        "api/customer-data.spec.ts › R1 basket › rejects a quantity of 0",
+        "api/customer-data.spec.ts › R1 basket › rejects a quantity of -1"
+      ],
+      "endpoints": [
+        "basket.checkout",
+        "basketItems.update"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-017",
+      "title": "Negative wallet top-ups are accepted",
+      "severity": "high",
+      "area": "R2",
+      "tests": [
+        "api/checkout.spec.ts › R2 wallet › refuses a negative top-up"
+      ],
+      "endpoints": [
+        "wallet.topUp"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-018",
+      "title": "Deluxe membership is granted without payment",
+      "severity": "high",
+      "area": "R2",
+      "tests": [
+        "api/checkout.spec.ts › R2 deluxe membership › refuses deluxe without a valid payment"
+      ],
+      "endpoints": [
+        "deluxe.buy"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-019",
+      "title": "The token issued at deluxe upgrade cannot use the basket until the customer logs in again",
+      "severity": "medium",
+      "area": "R2",
+      "tests": [
+        "api/checkout.spec.ts › R2 deluxe membership › the token issued at upgrade can still use the basket"
+      ],
+      "endpoints": [
+        "basketItems.create"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-020",
+      "title": "An address with no name is accepted",
+      "severity": "low",
+      "area": "R1",
+      "tests": [
+        "api/customer-data.spec.ts › R1 addresses › rejects an address with an invalid fullName"
+      ],
+      "endpoints": [
+        "addresses.create"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-021",
+      "title": "Saving a card echoes the full card number",
+      "severity": "high",
+      "area": "R1",
+      "tests": [
+        "api/customer-data.spec.ts › R1 payment cards › never echoes the full card number when a card is saved"
+      ],
+      "endpoints": [
+        "cards.create"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-022",
+      "title": "The data export CAPTCHA returns its own answer and can be skipped",
+      "severity": "medium",
+      "area": "R1",
+      "tests": [
+        "api/customer-data.spec.ts › R1 account data › the data export CAPTCHA does not include its own answer",
+        "api/customer-data.spec.ts › R1 account data › data export requires a solved CAPTCHA"
+      ],
+      "endpoints": [
+        "dataExport.captcha",
+        "dataExport.create"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-023",
+      "title": "Any signed-in user can read any customer's basket by id",
+      "severity": "critical",
+      "area": "R1",
+      "tests": [
+        "api/isolation.spec.ts › R1 isolation › GET /rest/basket/:id on another customer's record › refuses customer",
+        "api/isolation.spec.ts › R1 isolation › GET /rest/basket/:id on another customer's record › refuses deluxe",
+        "api/isolation.spec.ts › R1 isolation › GET /rest/basket/:id on another customer's record › refuses accounting",
+        "api/isolation.spec.ts › R1 isolation › GET /rest/basket/:id on another customer's record › refuses admin"
+      ],
+      "endpoints": [
+        "basket.get"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-024",
+      "title": "Updating another customer's address succeeds and moves it to the caller's account",
+      "severity": "critical",
+      "area": "R1",
+      "tests": [
+        "api/isolation.spec.ts › R1 isolation › PUT /api/Addresss/:id on another customer's record › refuses customer",
+        "api/isolation.spec.ts › R1 isolation › PUT /api/Addresss/:id on another customer's record › refuses deluxe",
+        "api/isolation.spec.ts › R1 isolation › PUT /api/Addresss/:id on another customer's record › refuses accounting",
+        "api/isolation.spec.ts › R1 isolation › PUT /api/Addresss/:id on another customer's record › refuses admin"
+      ],
+      "endpoints": [
+        "addresses.update"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-025",
+      "title": "Any signed-in user can apply a coupon to, or check out, another customer's basket",
+      "severity": "critical",
+      "area": "R2",
+      "tests": [
+        "api/isolation.spec.ts › R2 isolation › PUT /rest/basket/:id/coupon/:coupon on another customer's record › refuses customer",
+        "api/isolation.spec.ts › R2 isolation › PUT /rest/basket/:id/coupon/:coupon on another customer's record › refuses deluxe",
+        "api/isolation.spec.ts › R2 isolation › PUT /rest/basket/:id/coupon/:coupon on another customer's record › refuses accounting",
+        "api/isolation.spec.ts › R2 isolation › PUT /rest/basket/:id/coupon/:coupon on another customer's record › refuses admin",
+        "api/isolation.spec.ts › R2 isolation › POST /rest/basket/:id/checkout on another customer's record › refuses customer",
+        "api/isolation.spec.ts › R2 isolation › POST /rest/basket/:id/checkout on another customer's record › refuses deluxe",
+        "api/isolation.spec.ts › R2 isolation › POST /rest/basket/:id/checkout on another customer's record › refuses accounting",
+        "api/isolation.spec.ts › R2 isolation › POST /rest/basket/:id/checkout on another customer's record › refuses admin"
+      ],
+      "endpoints": [
+        "basket.checkout",
+        "basket.coupon"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    },
+    {
+      "id": "BUG-026",
+      "title": "Sending BasketId twice adds items to another customer's basket",
+      "severity": "critical",
+      "area": "R1",
+      "tests": [
+        "api/isolation.spec.ts › R1 isolation › a duplicate BasketId key cannot add items to another customer's basket"
+      ],
+      "endpoints": [
+        "basketItems.create"
+      ],
+      "approvedBy": "John Q Tester",
+      "approvedOn": "2026-11-17"
+    }
+  ]
 }
