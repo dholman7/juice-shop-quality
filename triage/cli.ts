@@ -66,6 +66,23 @@ function accessRule(id: string): string {
   return `${ep.method} ${ep.path}: ${who}${ep.note ? ` (${ep.note})` : ''}`;
 }
 
+/** What each likely cause means and what happens when it's accepted, shown once at the top of a review. */
+const CAUSES: Record<Category, string> = {
+  'product-bug': 'the app broke a rule      → becomes a tracked bug (known-bugs.json); developers fix the product',
+  'test-bug': 'the test itself is wrong  → recorded for the test owner to fix; no bug filed',
+  environment: 'app or network was down   → recorded; re-run, nobody\'s code is at fault',
+  flaky: 'passed on retry           → recorded; the test needs fixing, not the product',
+  'needs-human': 'not enough evidence       → open the trace and decide',
+};
+
+function legend(who: string, count: number): void {
+  console.log(`${count} group(s) to review as ${who}. Each group is one defect, seen by one or more tests.`);
+  console.log('For each: is the rule right, and does the evidence show it broken? Then decide the likely cause:');
+  for (const c of CATEGORIES) console.log(`  ${c.padEnd(12)} ${CAUSES[c]}`);
+  console.log('Answers: [a] agree with the likely cause  [c] pick a different cause  [r] reject: not a real requirement, nothing filed');
+  console.log('         [s] decide later  [q] quit (every answer so far is saved)');
+}
+
 function show(group: FailureGroup, p: Proposal, index: number, total: number): void {
   const f = group.failures[0];
   console.log(`\n[${index + 1}/${total}] ${group.id}  ${group.failures.length} failing test(s), one shared defect`);
@@ -74,10 +91,13 @@ function show(group: FailureGroup, p: Proposal, index: number, total: number): v
   console.log(`  rule:      ${matrix && f.endpoint ? accessRule(f.endpoint) : `${f.title} (the test title is the requirement)`}`);
   console.log(`  tests:     ${group.failures.slice(0, 5).map((x) => x.key).join('\n             ')}${group.failures.length > 5 ? `\n             … and ${group.failures.length - 5} more` : ''}`);
   console.log(`  roles:     ${[...new Set(group.failures.map((x) => x.role ?? '-'))].join(', ')}`);
-  console.log(`  proposal:  ${p.category} (${p.confidence}, ${p.source})${p.downgradedBecause ? `  [downgraded: ${p.downgradedBecause}]` : ''}`);
+  const by = p.source === 'model' ? 'Claude' : 'offline rules';
+  console.log(`  likely cause: ${p.category} (${p.confidence} confidence, ${by})${p.downgradedBecause ? `  [downgraded: ${p.downgradedBecause}]` : ''}`);
   console.log(`  evidence:  ${p.evidence}`);
   console.log(`  why:       ${p.reasoning}`);
-  if (p.suggestedTitle) console.log(`  bug title: ${p.suggestedTitle} [${p.suggestedSeverity}]`);
+  if (p.suggestedTitle) console.log(`  bug title: ${p.suggestedTitle}`);
+  // Severity is the risk rating, from the risk area's rank; the likely cause is what broke.
+  if (p.suggestedSeverity) console.log(`  severity:  ${p.suggestedSeverity} (risk area ${f.endpoint ? catalogEndpoint(f.endpoint).area : (f.key.match(/\bR[123]\b/)?.[0] ?? 'unknown')})`);
 }
 
 /**
@@ -93,7 +113,7 @@ async function review(): Promise<void> {
   const pending = run.proposals.filter((p) => !decided.has(p.groupId));
   const who = reviewer();
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  console.log(`${pending.length} group(s) to review as ${who}. Answers: [a]ccept  [c]hange category  [r]eject  [s]kip  [q]uit`);
+  legend(who, pending.length);
 
   for (const [i, p] of pending.entries()) {
     const group = run.groups.find((g) => g.id === p.groupId)!;
@@ -105,9 +125,11 @@ async function review(): Promise<void> {
 
     let category: Category = p.category;
     if (answer === 'c') {
-      const picked = (await rl.question(`  category (${CATEGORIES.join(' / ')}): `)).trim() as Category;
+      const options = CATEGORIES.map((c, n) => `${n + 1} ${c}`).join('  ');
+      const raw = (await rl.question(`  likely cause (${options}): `)).trim();
+      const picked = (CATEGORIES[Number(raw) - 1] ?? raw) as Category;
       if (!CATEGORIES.includes(picked)) {
-        console.log('  unknown category; skipped');
+        console.log('  not one of the causes listed; left undecided');
         continue;
       }
       category = picked;

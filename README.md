@@ -33,6 +33,7 @@ It exits non-zero if any test fails that is not an approved open bug.
 |:--|:--|
 | `yarn app:up` / `app:down` | Fresh Juice Shop with per-worker staff test accounts / remove it |
 | `yarn test`, `yarn test:api`, `yarn test:ui` | Playwright only, against the running app |
+| `yarn playwright test --grep @R1` | One risk area's tests, API and UI (`@R1`, `@R2`, `@R3`); every test carries its endpoint's area tag |
 | `yarn triage` | Propose a cause for each failure group (offline rules) |
 | `TRIAGE_PROVIDER=claude yarn triage` | Same, classified by Claude through the local `claude` CLI |
 | `yarn triage:review` | A person accepts, changes, or rejects each proposal |

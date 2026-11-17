@@ -4,6 +4,7 @@
  */
 import { test as base, expect, type APIRequestContext } from '@playwright/test';
 import { Api, login, newCustomer, upgradeToDeluxe } from './api';
+import { endpoint as catalogEndpoint } from './catalog';
 import type { Role } from './config';
 import { applyKnownBug, loadKnownBugs } from './known-bugs';
 import { qaStaff } from './staff';
@@ -72,8 +73,9 @@ export const test = base.extend<Fixtures>({
 export { expect };
 
 /** Tags a test with the catalog endpoint and role it covers; the coverage map reads these. */
-export function covers(endpointId: string, role?: Role): { annotation: { type: string; description: string }[] } {
+export function covers(endpointId: string, role?: Role): { annotation: { type: string; description: string }[]; tag: string[] } {
   const annotation = [{ type: 'endpoint', description: endpointId }];
   if (role) annotation.push({ type: 'role', description: role });
-  return { annotation };
+  // The risk-area tag lets a test set run by area, UI included: `yarn playwright test --grep @R1`.
+  return { annotation, tag: [`@${catalogEndpoint(endpointId).area}`] };
 }
