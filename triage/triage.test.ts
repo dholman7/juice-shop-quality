@@ -102,3 +102,26 @@ test('the same defect seen by several roles forms one group', () => {
   assert.equal(groups[0].failures.length, 3);
   assert.equal(signature(roles[0]), signature(roles[2]));
 });
+
+test('a role-matrix bug title names who got through and the rule', () => {
+  // Arrange
+  const roles = ['customer', 'deluxe'].map((role) =>
+    failure({ file: 'api/access-matrix.spec.ts', endpoint: 'basketItems.list', role, title: `refuses ${role}`, error: `Error: GET /api/BasketItems as ${role} returned 200` }),
+  );
+
+  // Act
+  const title = classify(group(...roles)).suggestedTitle;
+
+  // Assert
+  assert.equal(title, 'customer, deluxe can call GET /api/BasketItems (only admin should)');
+});
+
+test('a server error is titled as a failure, not as access granted', () => {
+  const f = failure({ file: 'api/access-matrix.spec.ts', endpoint: 'basketItems.list', role: 'anonymous', title: 'refuses anonymous', error: 'Error: GET /api/BasketItems as anonymous returned 500' });
+  assert.equal(classify(group(f)).suggestedTitle, 'GET /api/BasketItems fails with 500 for anonymous instead of refusing');
+});
+
+test('a behavior bug title states the requirement from the test title', () => {
+  const f = failure({ key: 'api/checkout.spec.ts › R2 checkout › refuses to check out an empty basket', error: 'Expected: 400\nReceived: 200' });
+  assert.equal(classify(group(f)).suggestedTitle, 'Not met: R2 checkout › refuses to check out an empty basket');
+});

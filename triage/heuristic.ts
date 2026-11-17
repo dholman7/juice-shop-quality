@@ -14,6 +14,30 @@ function quote(text: string, pattern: RegExp): string | undefined {
 }
 
 /**
+ * A bug title a person can read: for a role-matrix group, who got through and what the rule says;
+ * for a behavior test, the requirement its title states.
+ */
+function bugTitle(group: FailureGroup): string {
+  const f = group.failures[0];
+  const roles = [...new Set(group.failures.map((x) => x.role).filter(Boolean))].join(', ');
+  if (!f.file.includes('access-matrix') || !f.endpoint) {
+    // The test's title path after the file names the requirement; list every role in the group.
+    const path = f.key.split(' › ').slice(1);
+    if (roles && group.failures.length > 1) path[path.length - 1] = path[path.length - 1].replace(/\b(anonymous|customer|deluxe|accounting|admin)\b/, roles);
+    return `Not met: ${path.join(' › ')}`;
+  }
+  const ep = catalogEndpoint(f.endpoint);
+  const status = Number(f.error.match(/returned (\d{3})/)?.[1]);
+  if (f.title.startsWith('allows')) return `${ep.method} ${ep.path} refuses ${roles}, who should be allowed`;
+  if (status >= 500) return `${ep.method} ${ep.path} fails with ${status} for ${roles} instead of refusing`;
+  const rule = ep.access === 'owner' ? "only the record's owner should"
+    : ep.access === 'nobody' ? 'no one should'
+      : Array.isArray(ep.access) ? `only ${ep.access.join(' and ')} should`
+        : 'only signed-in users should';
+  return `${roles} can call ${ep.method} ${ep.path} (${rule})`;
+}
+
+/**
  * Rules run in order, and the first match wins. Order matters: an unreachable app or a broken
  * selector must not be mistaken for a product bug, so those checks come before the assertion check.
  */
@@ -49,7 +73,7 @@ export function classify(group: FailureGroup): Proposal {
       confidence: status ? 'high' : 'medium',
       evidence: (status ?? assertion)!,
       reasoning: 'The product answered, and the answer broke a stated expectation.',
-      suggestedTitle: `${f.endpoint ?? f.title}: ${(status ?? assertion)!.slice(0, 80)}`,
+      suggestedTitle: bugTitle(group),
       suggestedSeverity: area ? SEVERITY_BY_AREA[area] : 'medium',
     };
   }

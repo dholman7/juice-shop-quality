@@ -55,10 +55,24 @@ function nextBugId(bugs: KnownBug[]): string {
   return `BUG-${String(max + 1).padStart(3, '0')}`;
 }
 
+/** The intended access rule in plain words, so a reviewer can judge without opening src/catalog.ts. */
+function accessRule(id: string): string {
+  const ep = catalogEndpoint(id);
+  const who = ep.access === 'public' ? 'anyone, including signed-out visitors, may call it'
+    : ep.access === 'authenticated' ? 'any signed-in user may call it'
+      : ep.access === 'owner' ? "only the customer who owns the record; others must be refused (401/403)"
+        : ep.access === 'nobody' ? 'no one may call it through the API; every caller must be refused (401/403)'
+          : `only ${ep.access.join(' and ')} may call it; everyone else must be refused (401/403)`;
+  return `${ep.method} ${ep.path}: ${who}${ep.note ? ` (${ep.note})` : ''}`;
+}
+
 function show(group: FailureGroup, p: Proposal, index: number, total: number): void {
   const f = group.failures[0];
-  console.log(`\n[${index + 1}/${total}] ${group.id}  ${group.failures.length} test(s)`);
-  console.log(`  example:   ${f.key}`);
+  console.log(`\n[${index + 1}/${total}] ${group.id}  ${group.failures.length} failing test(s), one shared defect`);
+  // A role-matrix test checks the catalog's access rule; a behavior test's title states its own rule.
+  const matrix = f.file.includes('access-matrix');
+  console.log(`  rule:      ${matrix && f.endpoint ? accessRule(f.endpoint) : `${f.title} (the test title is the requirement)`}`);
+  console.log(`  tests:     ${group.failures.slice(0, 5).map((x) => x.key).join('\n             ')}${group.failures.length > 5 ? `\n             … and ${group.failures.length - 5} more` : ''}`);
   console.log(`  roles:     ${[...new Set(group.failures.map((x) => x.role ?? '-'))].join(', ')}`);
   console.log(`  proposal:  ${p.category} (${p.confidence}, ${p.source})${p.downgradedBecause ? `  [downgraded: ${p.downgradedBecause}]` : ''}`);
   console.log(`  evidence:  ${p.evidence}`);
