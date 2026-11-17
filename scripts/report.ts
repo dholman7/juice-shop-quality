@@ -1,6 +1,6 @@
 /**
  * Builds reports/index.html: one page a tester or manager can read without the terminal.
- * Inputs: the Playwright JSON report, the triage proposals, decisions, and known-bugs.json.
+ * Inputs: the Playwright JSON report, the triage proposals, decisions, known-bugs.json, and the ZAP scan summary.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { AREAS, ENDPOINTS, allows, type Area } from '../src/catalog';
@@ -10,6 +10,7 @@ import { readRows, type Row } from './results';
 import { readHistory, summarize, type RunSummary } from './history';
 import type { TriageRun } from '../triage/cli';
 import type { Decision } from '../triage/types';
+import { readSummary, type ZapSummary } from '../security/zap';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -80,6 +81,25 @@ function runHistory(history: RunSummary[]): string {
     .join('')}</tbody></table></div>`;
 }
 
+/** The ZAP baseline scan: undecided findings first, then open security bugs, dismissals, and low or informational. */
+function security(zap: ZapSummary | undefined): string {
+  if (!zap) return '<h2>Security scan (OWASP ZAP baseline)</h2><p>Not run this time (<code>SKIP_ZAP=1</code>, or the scan failed: see the run log).</p>';
+  const row = (f: ZapSummary['reported'][number], state: string, note = '') =>
+    `<tr><td>${state}</td><td><span class="pill sev-${f.risk === 'informational' ? 'low' : f.risk}">${f.risk}</span></td><td>${esc(f.name)}${f.cwe ? ` <span class="legend">CWE-${f.cwe}</span>` : ''}</td><td class="num">${f.count}</td><td><code>${esc(f.example)}</code></td><td>${state.includes('needs a person') ? '<code>yarn security:review</code>' : esc(note)}</td></tr>`;
+  const rows = [
+    ...zap.newFindings.map((f) => row(f, status('warn', 'needs a person'))),
+    ...zap.bugs.map((f) => row(f, status('warn', 'open bug'), `${f.decision.decidedBy} · ${f.decision.decidedOn}${f.decision.reason ? ` · ${f.decision.reason}` : ''}`)),
+    ...zap.dismissed.map((f) => row(f, status('muted', 'dismissed'), `${f.decision.reason} (${f.decision.decidedBy} · ${f.decision.decidedOn})`)),
+    ...zap.reported.map((f) => row(f, status('muted', 'reported'))),
+  ];
+  const notSeen = zap.notSeen.length
+    ? `<p class="legend">Decided earlier but not raised this scan (fixed, or the spider didn't reach it): ${zap.notSeen.map((d) => esc(d.name)).join(', ')}.</p>`
+    : '';
+  return `<h2>Security scan (OWASP ZAP baseline)</h2>
+<p class="legend">ZAP ${esc(zap.zapVersion)}, passive rules only, against the local app. Medium and high findings fail the run until a person files or dismisses them. <a href="zap/zap.html">Full ZAP report</a></p>
+<div class="scroll"><table><thead><tr><th>Status</th><th>Risk</th><th>Finding</th><th class="num">URLs</th><th>Example</th><th>Decision</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>${notSeen}`;
+}
+
 /** Recorded runs plus this one, without writing anything. */
 function historyWithCurrent(): RunSummary[] {
   const now = summarize();
@@ -101,6 +121,8 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
   );
   const pending = triage?.proposals.filter((p) => !decided.has(p.groupId)) ?? [];
 
+  const zap = readSummary();
+  const zapNew = zap?.newFindings.length ?? 0;
   const tiles = [
     ['Passed', count('passed'), 'ok'],
     ['New failures', count('failed'), count('failed') ? 'bad' : 'ok'],
@@ -108,6 +130,7 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
     ['Flaky', count('flaky'), count('flaky') ? 'warn' : 'ok'],
     ['Bug fixed?', count('fixed'), count('fixed') ? 'warn' : 'ok'],
     ['Skipped', count('skipped'), 'muted'],
+    ['New scan findings', zap ? zapNew : '–', !zap ? 'muted' : zapNew ? 'bad' : 'ok'],
   ] as const;
 
   const byArea = (Object.keys(AREAS) as Area[]).map((a) => {
@@ -166,7 +189,7 @@ th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;verti
 .grid td.cell{text-align:center;width:90px;font-weight:600}.cell.passed{background:#e6f4ec;color:var(--ok)}.cell.known-bug{background:#fdf1d8;color:var(--warn)}
 .cell.failed,.cell.fixed{background:#fde8e6;color:var(--bad)}.cell.flaky{background:#efe6fb;color:#6b3fa0}.cell.skipped,.cell.none{color:#9aa5b1}
 .pill{display:inline-block;white-space:nowrap;padding:1px 8px;border-radius:99px;font-size:12px;background:#eef1f4}.pill.product-bug,.pill.sev-critical{background:#fde8e6;color:var(--bad)}
-.pill.test-bug,.pill.sev-high{background:#fdf1d8;color:var(--warn)}.pill.flaky{background:#efe6fb;color:#6b3fa0}.pill.environment{background:#e3eefa;color:var(--accent)}
+.pill.test-bug,.pill.sev-high,.pill.sev-medium{background:#fdf1d8;color:var(--warn)}.pill.flaky{background:#efe6fb;color:#6b3fa0}.pill.environment{background:#e3eefa;color:var(--accent)}
 .pill.fixed,.pill.st-ok{background:#e6f4ec;color:var(--ok)}.pill.st-warn{background:#fdf1d8;color:var(--warn)}.pill.st-muted{color:var(--muted)}
 .cell[data-tip]{cursor:help}.cell:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 #tip{position:fixed;z-index:10;max-width:min(380px,calc(100vw - 16px));white-space:pre-line;background:var(--ink);color:#fff;font-size:12.5px;line-height:1.45;padding:8px 10px;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
@@ -187,6 +210,8 @@ ${pendingRows.length ? `<div class="scroll"><table><thead><tr><th>Likely cause</
 
 <h2>Open bugs</h2>
 ${bugRows.length ? `<div class="scroll"><table><thead><tr><th>Bug</th><th>Severity</th><th>Area</th><th>Title</th><th class="num">Failing tests</th><th>Approved</th></tr></thead><tbody>${bugRows.join('')}</tbody></table></div>` : '<p>No approved bugs yet.</p>'}
+
+${security(zap)}
 
 <h2>Coverage: every endpoint, every role</h2>
 <p class="legend">✓ the role may call it · ✗ it must be refused · green as intended · amber open bug · red new failure · purple flaky · grey not run. Hover or tap a cell to see its tests.</p>

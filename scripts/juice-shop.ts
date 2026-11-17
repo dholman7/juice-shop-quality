@@ -15,7 +15,7 @@ import { QA_STAFF_SLOTS, qaStaff } from '../src/staff';
 export const IMAGE =
   process.env.JUICE_SHOP_IMAGE ??
   'bkimminich/juice-shop@sha256:877fc77b12d72b42e486eb09b6b1711cc56514306d92006b284e7e7cf076a809';
-const NAME = 'juice-shop';
+export const NAME = 'juice-shop';
 // Passed as NODE_CONFIG: turns off training-mode pop-ups that cover the page in UI tests.
 const TEST_CONFIG = {
   challenges: { showSolvedNotifications: false },

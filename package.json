@@ -11,11 +11,13 @@
     "test:ui": "playwright test --project=ui",
     "triage": "tsx triage/cli.ts propose",
     "triage:review": "tsx triage/cli.ts review",
+    "security:zap": "tsx security/zap.ts scan",
+    "security:review": "tsx security/zap.ts review",
     "report": "tsx scripts/report.ts",
     "coverage:map": "tsx scripts/coverage-map.ts",
     "all": "tsx scripts/run-all.ts",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --test --import tsx triage/triage.test.ts scripts/history.test.ts src/passkey.test.ts"
+    "test:unit": "node --test --import tsx triage/triage.test.ts scripts/history.test.ts src/passkey.test.ts security/zap.test.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

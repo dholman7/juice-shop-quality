@@ -1,4 +1,4 @@
-# Runs the full suite against a fresh Juice Shop and publishes the report.
+# Runs the ZAP baseline scan and the full suite against a fresh Juice Shop, and publishes the report.
 # Pull requests get the report as an artifact. Main and the nightly run also publish it to GitHub Pages,
 # carrying the run history forward so the report's Progress section shows a trend.
 # The triage agent runs with the offline heuristic here; a team version would set
