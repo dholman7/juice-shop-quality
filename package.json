@@ -2,6 +2,7 @@
   "name": "juice-shop-quality",
   "private": true,
   "type": "module",
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "app:up": "tsx scripts/juice-shop.ts up",
     "app:down": "tsx scripts/juice-shop.ts down",

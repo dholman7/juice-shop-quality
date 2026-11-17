@@ -1,9 +1,9 @@
 /**
  * Failure triage with a person in the loop.
  *
- *   npm run triage                       propose a category for each failure group (heuristic, offline)
- *   TRIAGE_PROVIDER=claude npm run triage   same, classified by Claude through the local `claude` CLI
- *   npm run triage:review                a person accepts, changes, or rejects each proposal
+ *   yarn triage                          propose a category for each failure group (heuristic, offline)
+ *   TRIAGE_PROVIDER=claude yarn triage   same, classified by Claude through the local `claude` CLI
+ *   yarn triage:review                   a person accepts, changes, or rejects each proposal
  *
  * Proposals are only suggestions. Nothing reaches known-bugs.json until a reviewer accepts it.
  */
@@ -63,7 +63,7 @@ function show(group: FailureGroup, p: Proposal, index: number, total: number): v
 }
 
 async function review(): Promise<void> {
-  if (!existsSync(PROPOSALS)) throw new Error('No proposals yet. Run `npm run triage` first.');
+  if (!existsSync(PROPOSALS)) throw new Error('No proposals yet. Run `yarn triage` first.');
   const run = JSON.parse(readFileSync(PROPOSALS, 'utf8')) as TriageRun;
   const decided = new Set(
     existsSync(DECISIONS) ? readFileSync(DECISIONS, 'utf8').trim().split('\n').filter(Boolean).map((l) => (JSON.parse(l) as Decision).groupId) : [],
@@ -133,7 +133,7 @@ function summary(run: TriageRun): void {
   const counts = Object.fromEntries(CATEGORIES.map((c) => [c, run.proposals.filter((p) => p.category === c).length]));
   const tests = run.groups.reduce((n, g) => n + g.failures.length, 0);
   console.log(`triage (${run.provider}): ${tests} failing test(s) in ${run.groups.length} group(s)`, counts);
-  console.log(`proposals written to ${PROPOSALS}; nothing is applied until someone runs \`npm run triage:review\``);
+  console.log(`proposals written to ${PROPOSALS}; nothing is applied until someone runs \`yarn triage:review\``);
 }
 
 const command = process.argv[2];

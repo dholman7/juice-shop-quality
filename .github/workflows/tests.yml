@@ -20,13 +20,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run typecheck
-      - run: npm run test:unit
+          cache: yarn
+      - run: corepack enable  # use the Yarn version pinned in package.json
+      - run: yarn install --frozen-lockfile
+      - run: yarn playwright install --with-deps chromium
+      - run: yarn typecheck
+      - run: yarn test:unit
       - name: Suite, triage proposals, and report
-        run: npm run all
+        run: yarn all
       - if: always()
         uses: actions/upload-artifact@v7
         with:

@@ -2,8 +2,8 @@
  * Starts a fresh Juice Shop for a test run, seeded with one admin and one accounting
  * account per Playwright worker so parallel tests never share staff state.
  *
- *   npm run app:up     replace any running copy with a fresh one
- *   npm run app:down   stop and remove it
+ *   yarn app:up     replace any running copy with a fresh one
+ *   yarn app:down   stop and remove it
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

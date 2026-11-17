@@ -1,7 +1,7 @@
 /**
  * The one command: fresh app, every test, triage proposals, report.
- *   npm run all                      heuristic triage (offline)
- *   TRIAGE_PROVIDER=claude npm run all   triage with Claude through the local `claude` CLI
+ *   yarn all                          heuristic triage (offline)
+ *   TRIAGE_PROVIDER=claude yarn all   triage with Claude through the local `claude` CLI
  * Exits non-zero when a test fails that is not an approved open bug.
  */
 import { spawnSync } from 'node:child_process';
@@ -18,7 +18,7 @@ if (process.env.SKIP_APP !== '1') {
 }
 
 console.log('Running the Playwright suite...');
-spawnSync('npx', ['playwright', 'test'], { stdio: 'inherit' });
+spawnSync('yarn', ['playwright', 'test'], { stdio: 'inherit' });
 
 const run = propose();
 mkdirSync('reports', { recursive: true });
@@ -28,6 +28,6 @@ writeFileSync('docs/coverage.md', coverageMarkdown(readRows().rows));
 const { rows } = readRows();
 const n = (r: string) => rows.filter((x) => x.result === r).length;
 console.log(`\n${n('passed')} passed · ${n('failed')} new failures · ${n('known-bug')} open bugs · ${n('flaky')} flaky · ${n('skipped')} skipped`);
-console.log(`Triage: ${run.groups.length} group(s) proposed (${run.provider}). Review with \`npm run triage:review\`.`);
+console.log(`Triage: ${run.groups.length} group(s) proposed (${run.provider}). Review with \`yarn triage:review\`.`);
 console.log('Report: reports/index.html');
 process.exit(n('failed') + n('fixed') > 0 ? 1 : 0);

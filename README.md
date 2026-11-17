@@ -11,15 +11,15 @@ Playwright + TypeScript suite for the top 3 risks in the case-study strategy, pl
 
 ## Run it
 
-Needs Docker and Node (version in `.nvmrc`).
+Needs Docker, Node (version in `.nvmrc`), and Yarn 1 (version in `package.json` → `packageManager`; `corepack enable` provides it).
 
 ```bash
-npm ci
-npx playwright install chromium
-npm run all
+yarn install --frozen-lockfile
+yarn playwright install chromium
+yarn all
 ```
 
-`npm run all` starts a fresh Juice Shop container, runs every test, asks the triage agent to propose a cause for each new failure, and writes:
+`yarn all` starts a fresh Juice Shop container, runs every test, asks the triage agent to propose a cause for each new failure, and writes:
 
 - `reports/index.html`: summary, triage proposals waiting for review, open bugs, and the endpoint-by-role coverage grid
 - `reports/playwright/index.html`: every test with traces and screenshots for failures
@@ -29,13 +29,13 @@ It exits non-zero if any test fails that is not an approved open bug.
 
 | Command | What it does |
 |:--|:--|
-| `npm run app:up` / `app:down` | Fresh Juice Shop with per-worker staff test accounts / remove it |
-| `npm test`, `npm run test:api`, `npm run test:ui` | Playwright only, against the running app |
-| `npm run triage` | Propose a cause for each failure group (offline rules) |
-| `TRIAGE_PROVIDER=claude npm run triage` | Same, classified by Claude through the local `claude` CLI |
-| `npm run triage:review` | A person accepts, changes, or rejects each proposal |
-| `npm run report`, `npm run coverage:map` | Rebuild the report or coverage map from the last run |
-| `npm run test:unit` | Unit tests for the triage agent (redaction, rules, validation, grouping) |
+| `yarn app:up` / `app:down` | Fresh Juice Shop with per-worker staff test accounts / remove it |
+| `yarn test`, `yarn test:api`, `yarn test:ui` | Playwright only, against the running app |
+| `yarn triage` | Propose a cause for each failure group (offline rules) |
+| `TRIAGE_PROVIDER=claude yarn triage` | Same, classified by Claude through the local `claude` CLI |
+| `yarn triage:review` | A person accepts, changes, or rejects each proposal |
+| `yarn report`, `yarn coverage:map` | Rebuild the report or coverage map from the last run |
+| `yarn test:unit` | Unit tests for the triage agent (redaction, rules, validation, grouping) |
 
 > [!IMPORTANT]
 > Only run this against your own local container. The security checks send attack payloads (SQL injection, forged tokens).
@@ -112,7 +112,7 @@ How it works ([`triage/`](triage)):
    - **`heuristic`** (default, offline): deterministic rules. It is the baseline and the fallback.
    - **`claude`**: Claude through the local `claude` CLI, with a JSON schema for the answer. In CI it would call the Claude API with a key from the pipeline's secret store.
 5. [`model.ts`](triage/model.ts) validates every model answer: the evidence must be a verbatim quote from the failure text, and "flaky" requires a retry that passed. If either check fails, the answer drops to `needs-human`. The model never gets the final say.
-6. `npm run triage:review` shows each group to a person: accept, change category, reject, or skip. Only accepted product bugs reach `known-bugs.json`, with the reviewer's name and date. Every decision is logged in `triage/decisions.jsonl`.
+6. `yarn triage:review` shows each group to a person: accept, change category, reject, or skip. Only accepted product bugs reach `known-bugs.json`, with the reviewer's name and date. Every decision is logged in `triage/decisions.jsonl`.
 
 **First real run, Claude (Haiku) against the rules on the same 39 groups:**
 
