@@ -512,8 +512,8 @@
       "id": "BUG-026",
       "jira": "SHOP-239",
       "title": "Sending BasketId twice adds items to another customer's basket",
-      "severity": "critical",
-      "impact": 3,
+      "severity": "high",
+      "impact": 4,
       "likelihood": 4,
       "area": "R1",
       "tests": [
@@ -523,7 +523,18 @@
         "basketItems.create"
       ],
       "approvedBy": "John Q Tester",
-      "approvedOn": "2026-11-17"
+      "approvedOn": "2026-11-17",
+      "rerated": [
+        {
+          "from": "critical",
+          "to": "high",
+          "impact": 4,
+          "likelihood": 4,
+          "reason": "affects every user",
+          "by": "Dan Holman",
+          "on": "2026-11-17"
+        }
+      ]
     }
   ]
 }

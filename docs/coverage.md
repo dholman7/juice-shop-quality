@@ -68,8 +68,8 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 | `POST /rest/user/login` | ✓ bug | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 15 |
 | `GET /rest/user/whoami` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 6 |
 | `GET /rest/saveLoginIp` | ✗ pass | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 6 |
-| `GET /rest/user/change-password` | ✗ bug | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 11 |
-| `POST /rest/user/reset-password` | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 9 |
+| `GET /rest/user/change-password` | ✗ bug | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 11 |
+| `POST /rest/user/reset-password` | ✓ bug | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 9 |
 | `GET /rest/user/security-question` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 6 |
 | `GET /api/SecurityQuestions` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 | `GET /api/SecurityQuestions/:id` | ✗ pass | ✗ pass | ✗ pass | ✗ pass | ✗ pass | 5 |
