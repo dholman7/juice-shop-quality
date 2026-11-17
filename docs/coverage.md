@@ -78,9 +78,9 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 | `POST /api/SecurityAnswers` <sup title="Called once by the sign-up page right after registration.">note</sup> | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 6 |
 | `GET /api/SecurityAnswers/:id` | ✗ pass | ✗ pass | ✗ pass | ✗ pass | ✗ pass | 5 |
 | `GET /rest/2fa/status` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 6 |
-| `POST /rest/2fa/setup` <sup title="Not run as the shared admin and accounting seed accounts: turning on 2FA would lock other parallel tests out.">note</sup> | ✗ pass | ✓ pass | ✓ pass | ✓ skip | ✓ skip | 8 |
+| `POST /rest/2fa/setup` <sup title="Not run as admin or accounting: later tests on the same worker sign in with that QA staff account, and turning on 2FA would lock them out.">note</sup> | ✗ pass | ✓ pass | ✓ pass | ✓ skip | ✓ skip | 8 |
 | `POST /rest/2fa/verify` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 8 |
-| `POST /rest/2fa/disable` <sup title="Not run as the shared admin and accounting seed accounts, for the same reason as setup.">note</sup> | ✗ pass | ✓ pass | ✓ pass | ✓ skip | ✓ skip | 6 |
+| `POST /rest/2fa/disable` <sup title="Not run as admin or accounting, for the same reason as setup.">note</sup> | ✗ pass | ✓ pass | ✓ pass | ✓ skip | ✓ skip | 6 |
 | `GET /rest/passkey/register-options` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 | `POST /rest/passkey/register-verify` <sup title="A successful ceremony needs a real authenticator, and any failed one returns 401, so only the anonymous refusal is checked here.">note</sup> | ✗ pass | ✓ skip | ✓ skip | ✓ skip | ✓ skip | 5 |
 | `POST /rest/passkey/login-options` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
@@ -92,8 +92,8 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 
 - `PUT /api/Quantitys/:id`: Accounting may update stock only from the office IP allow-list, so every caller from a test machine is refused.
 - `POST /api/SecurityAnswers`: Called once by the sign-up page right after registration.
-- `POST /rest/2fa/setup`: Not run as the shared admin and accounting seed accounts: turning on 2FA would lock other parallel tests out.
-- `POST /rest/2fa/disable`: Not run as the shared admin and accounting seed accounts, for the same reason as setup.
+- `POST /rest/2fa/setup`: Not run as admin or accounting: later tests on the same worker sign in with that QA staff account, and turning on 2FA would lock them out.
+- `POST /rest/2fa/disable`: Not run as admin or accounting, for the same reason as setup.
 - `POST /rest/passkey/register-verify`: A successful ceremony needs a real authenticator, and any failed one returns 401, so only the anonymous refusal is checked here.
 - `POST /rest/passkey/login-verify`: Needs a real authenticator to succeed; tests/api/auth.spec.ts checks that a forged assertion is rejected.
 

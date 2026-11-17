@@ -141,6 +141,7 @@ Built with Claude Code. Most of the AI's mistakes surfaced the same way: run the
 | Admin UI test asserting `email.toContain('@test.local')` | A check on test data, not the page. It could never fail. | Replaced with a check that the page lists customers. |
 | Triage evidence quoting only `Expected: 400` | Not enough for a reviewer to decide. | Evidence now quotes the expected and received pair. |
 | A model triage answer with the reasoning "Placeholder; to be replaced after reading the test source." | The answer was unfinished, and the validation let it through. | Validation rejects unfinished reasoning; a unit test uses that exact answer. |
+| Report's by-area table, which read the risk area from test titles | UI test titles don't name an area, so all 40 UI tests were silently missing from it. Found by a review pass over the code. | Falls back to the area of the endpoint the test covers; all 527 tests now counted. |
 
 ## Secrets
 

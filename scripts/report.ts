@@ -13,10 +13,11 @@ import type { Decision } from '../triage/types';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-/** The risk area (R1/R2/R3) named in the test's titles, for the by-area table. UI test titles don't name one, so they aren't counted there. */
+/** The risk area for the by-area table: named in the test's titles, or else (UI tests) the area of the endpoint it covers. */
 function areaOf(r: Row): Area | undefined {
   const m = r.key.match(/\b(R[123])\b/);
-  return m ? (m[1] as Area) : undefined;
+  if (m) return m[1] as Area;
+  return r.endpoint ? ENDPOINTS.find((e) => e.id === r.endpoint)?.area : undefined;
 }
 
 function sparkline(values: number[], label: string): string {
