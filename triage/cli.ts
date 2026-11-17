@@ -133,10 +133,10 @@ async function review(): Promise<void> {
   for (const [i, p] of pending.entries()) {
     const group = run.groups.find((g) => g.id === p.groupId)!;
     show(group, p, i, pending.length);
-    const answer = (await rl.question('  > ')).trim().toLowerCase();
+    const answer = await askChoice(rl, ['a', 'c', 'r', 's', 'q']);
     if (answer === 'q') break;
-    // Skip (or any other key) leaves the group undecided; it comes back next time.
-    if (answer !== 'a' && answer !== 'c' && answer !== 'r') continue;
+    // Decide later: the group stays undecided and comes back next time.
+    if (answer === 's') continue;
 
     let category: Category = p.category;
     if (answer === 'c') {
@@ -201,6 +201,15 @@ async function review(): Promise<void> {
     appendFileSync(DECISIONS, `${JSON.stringify(decision)}\n`);
   }
   rl.close();
+}
+
+/** One of the listed answers; anything else says so and asks again, so a typo never skips an item. */
+async function askChoice<T extends string>(rl: ReturnType<typeof createInterface>, allowed: readonly T[]): Promise<T> {
+  for (;;) {
+    const raw = (await rl.question('  > ')).trim().toLowerCase();
+    if ((allowed as readonly string[]).includes(raw)) return raw as T;
+    console.log(`  not an answer here; type ${allowed.map((a) => (a ? `[${a}]` : '[Enter]')).join(' ')}`);
+  }
 }
 
 /**
@@ -299,9 +308,9 @@ async function severityCheck(rl: ReturnType<typeof createInterface>, who: string
     const band = scored ? severityFor(bug.impact, bug.likelihood) : undefined;
     console.log(`\n  ${bug.id} ${bug.jira}  ${bug.title}`);
     console.log(scored ? `  registered ${bug.severity}; I${bug.impact} × L${bug.likelihood} = ${bug.impact * bug.likelihood} → ${band}` : `  registered ${bug.severity}; no valid scores yet`);
-    const answer = (await rl.question('  > ')).trim().toLowerCase();
+    const answer = await askChoice(rl, ['', 's', 'l', 'q']);
     if (answer === 'q') return false;
-    if (answer !== '' && answer !== 's') continue;
+    if (answer === 'l') continue;
     if (answer === '' && band) {
       const bugs = loadKnownBugs();
       save(bugs.map((b) => (b.id === bug.id ? rescore(b, bug.impact, bug.likelihood, `matches I${bug.impact} × L${bug.likelihood} = ${bug.impact * bug.likelihood}`, who, today()) : b)));
