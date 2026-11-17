@@ -1,0 +1,26 @@
+{
+  "name": "juice-shop-quality",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "app:up": "tsx scripts/juice-shop.ts up",
+    "app:down": "tsx scripts/juice-shop.ts down",
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=ui",
+    "triage": "tsx triage/cli.ts propose",
+    "triage:review": "tsx triage/cli.ts review",
+    "report": "tsx scripts/report.ts",
+    "coverage:map": "tsx scripts/coverage-map.ts",
+    "all": "tsx scripts/run-all.ts",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --test --import tsx triage/triage.test.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "otplib": "^13.6.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.2"
+  }
+}
