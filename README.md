@@ -231,6 +231,7 @@ Built with Claude Code. Most of the AI's mistakes surfaced the same way: run the
 | Severity picked by hand at review, apart from the strategy's impact × likelihood | Scoring all 26 bugs afterwards, 3 didn't match their score: readable user records were rated high but score 25, critical. | Each bug stores both scores and its severity is computed. `yarn all` fails on a mismatch, and review starts with any. |
 | Triage rule: 502, 503, or 504 anywhere in the error means the app was down | It matched file paths and line numbers. Under a folder named `claude-502`, real product bugs were proposed as "environment". | Stack and code-frame lines are left out of that check; a unit test pins the case. |
 | Terminal prompts as the tester's review tool | Too much for a manual tester. My own review hit two bugs: a mistyped key skipped a bug and the review exited as if it had crashed, and an extra argument crashed `yarn all`. | Both fixed. `yarn review` puts the same review on one local page, writing the same files through the same code. |
+| Review page cards built from nested lists, and redrawn on every decision | Found by driving the demo in a browser: suggested duplicates showed as "[object HTMLLabelElement]", and a search typed in one card vanished when another card was decided. | Lists flatten fully, and cards persist between redraws; the browser run now types in one card, decides two others, then uses the search. |
 
 ## Secrets
 
