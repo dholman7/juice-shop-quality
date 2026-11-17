@@ -11,6 +11,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { KNOWN_BUGS_PATH, findBug, isScore, jiraKey, loadKnownBugs, rescore, severityFor, severityMismatches, type KnownBug } from '../src/known-bugs';
 import { endpoint as catalogEndpoint } from '../src/catalog';
 import { collectFailures, groupFailures } from './collect';
@@ -351,7 +353,8 @@ function summary(run: TriageRun): void {
   console.log(`proposals written to ${PROPOSALS}; nothing is applied until someone runs \`yarn triage:review\``);
 }
 
-const command = process.argv[2];
+// Only as the entry script: run-all imports propose() and passes its own arguments.
+const command = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url) ? process.argv[2] : undefined;
 if (command === 'propose') summary(propose());
 else if (command === 'review') await review();
 else if (command === 'rate') await rate();
