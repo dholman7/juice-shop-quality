@@ -1,7 +1,7 @@
 /**
  * Known-bug registry: product bugs a person approved in `yarn triage:review`, stored in known-bugs.json.
- * Tests that hit one are marked as expected failures, so CI stays red only for new failures
- * while the bug stays visible in the report.
+ * Tests that hit one are marked as expected failures, so CI goes red only for new failures or a bug
+ * that looks fixed, while the bug stays visible in the report.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

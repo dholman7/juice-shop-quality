@@ -3,7 +3,8 @@
  *   yarn all                          heuristic triage (offline)
  *   TRIAGE_PROVIDER=claude yarn all   triage with Claude through the local `claude` CLI
  *   SKIP_ZAP=1 yarn all               skip the security scan
- * Exits non-zero when a test fails that is not an approved open bug, or the scan has an undecided medium or high finding.
+ * Exits non-zero on a test failure that is not an approved open bug, an open bug's test that now passes,
+ * an undecided medium or high scan finding, or a scan that errors.
  */
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
