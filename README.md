@@ -46,6 +46,7 @@ It exits non-zero if any test fails that is not an approved open bug, if an appr
 | `yarn triage` | Propose a cause for each failure group (offline rules) |
 | `TRIAGE_PROVIDER=claude yarn triage` | Same, classified by Claude through the local `claude` CLI |
 | `REVIEWER="Your Name" yarn triage:review` | A person accepts, changes, or rejects each group. The screen shows the rule being tested, the likely cause, quoted evidence, and severity. |
+| `REVIEWER="Your Name" yarn triage:rate` | A person changes an open bug's severity with a reason; the change is kept on the bug and shown in the report |
 | `yarn report`, `yarn coverage:map` | Rebuild the report or coverage map from the last run |
 | `yarn test:unit` | Unit tests for triage (redaction, rules, validation, grouping, duplicate suggestions), run history, the software passkey, and the scan gate |
 

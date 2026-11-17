@@ -19,6 +19,25 @@ export interface KnownBug {
   endpoints?: string[];
   approvedBy: string;
   approvedOn: string;
+  /** Severity changes after approval, oldest first. Written by `yarn triage:rate`. */
+  rerated?: Rerating[];
+}
+
+export type Severity = KnownBug['severity'];
+
+export interface Rerating {
+  from: Severity;
+  to: Severity;
+  reason: string;
+  by: string;
+  on: string;
+}
+
+/** A bug with its severity changed and the change recorded. Refuses a no-op or a change without a reason. */
+export function rerate(bug: KnownBug, to: Severity, reason: string, by: string, on: string): KnownBug {
+  if (to === bug.severity) throw new Error(`${bug.id} is already ${to}`);
+  if (!reason.trim()) throw new Error('a severity change needs a reason');
+  return { ...bug, severity: to, rerated: [...(bug.rerated ?? []), { from: bug.severity, to, reason: reason.trim(), by, on }] };
 }
 
 export const KNOWN_BUGS_PATH = fileURLToPath(new URL('../known-bugs.json', import.meta.url));

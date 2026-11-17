@@ -4,13 +4,14 @@
  *   yarn triage                          propose a category for each failure group (heuristic, offline)
  *   TRIAGE_PROVIDER=claude yarn triage   same, classified by Claude through the local `claude` CLI
  *   yarn triage:review                   a person accepts, changes, or rejects each proposal
+ *   yarn triage:rate                     a person changes an open bug's severity, with a reason
  *
  * Proposals are only suggestions. Nothing reaches known-bugs.json until a reviewer accepts it.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
-import { KNOWN_BUGS_PATH, loadKnownBugs, type KnownBug } from '../src/known-bugs';
+import { KNOWN_BUGS_PATH, loadKnownBugs, rerate, type KnownBug } from '../src/known-bugs';
 import { endpoint as catalogEndpoint } from '../src/catalog';
 import { collectFailures, groupFailures } from './collect';
 import { classify } from './heuristic';
@@ -226,6 +227,41 @@ async function askSeverity(rl: ReturnType<typeof createInterface>, suggested: Kn
   }
 }
 
+/**
+ * Re-rates open bugs: severity is a review decision, so it gets a name, date, and reason like the others.
+ * Recorded on the bug itself, not in decisions.jsonl, so triage agreement measures stay about triage.
+ */
+async function rate(): Promise<void> {
+  const who = reviewer();
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  console.log(`Re-rating open bugs as ${who}. Enter a bug id, or Enter alone to finish.`);
+  for (;;) {
+    const bugs = loadKnownBugs();
+    const id = (await rl.question('\n  bug id: ')).trim();
+    if (!id) break;
+    const bug = bugs.find((b) => b.id.toLowerCase() === id.toLowerCase());
+    if (!bug) {
+      console.log(`  no open bug ${id}`);
+      continue;
+    }
+    console.log(`  ${bug.id} [${bug.severity}, ${bug.area}] ${bug.title}`);
+    const to = await askSeverity(rl, bug.severity);
+    if (to === bug.severity) {
+      console.log('  unchanged');
+      continue;
+    }
+    const reason = (await rl.question('  why (impact × likelihood, or what changed)? ')).trim();
+    if (!reason) {
+      console.log('  a severity change needs a reason; left unchanged');
+      continue;
+    }
+    const updated = rerate(bug, to, reason, who, new Date().toISOString().slice(0, 10));
+    writeFileSync(KNOWN_BUGS_PATH, `${JSON.stringify({ bugs: bugs.map((b) => (b.id === bug.id ? updated : b)) }, null, 2)}\n`);
+    console.log(`  ${bug.id}: ${bug.severity} → ${to}`);
+  }
+  rl.close();
+}
+
 /** Console summary after `yarn triage`: counts per proposed category. */
 function summary(run: TriageRun): void {
   const counts = Object.fromEntries(CATEGORIES.map((c) => [c, run.proposals.filter((p) => p.category === c).length]));
@@ -237,4 +273,5 @@ function summary(run: TriageRun): void {
 const command = process.argv[2];
 if (command === 'propose') summary(propose());
 else if (command === 'review') await review();
+else if (command === 'rate') await rate();
 else if (command) throw new Error(`unknown command ${command}`);

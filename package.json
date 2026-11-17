@@ -11,6 +11,7 @@
     "test:ui": "playwright test --project=ui",
     "triage": "tsx triage/cli.ts propose",
     "triage:review": "tsx triage/cli.ts review",
+    "triage:rate": "tsx triage/cli.ts rate",
     "security:zap": "tsx security/zap.ts scan",
     "security:review": "tsx security/zap.ts review",
     "report": "tsx scripts/report.ts",
