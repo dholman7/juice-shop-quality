@@ -33,6 +33,15 @@ function sparkline(values: number[], label: string): string {
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(label)}, last ${v.length} runs: ${v.join(', ')}"><title>${esc(label)}: ${v.join(' → ')}</title><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="${x(last).toFixed(1)}" cy="${y(v[last]).toFixed(1)}" r="2.5" fill="currentColor"/></svg>`;
 }
 
+const RESULT_WORDS: Record<Row['result'], string> = {
+  passed: 'Passed',
+  failed: 'New failure',
+  'known-bug': 'Open bug',
+  flaky: 'Flaky',
+  skipped: 'Not run',
+  fixed: 'Bug fixed?',
+};
+
 const status = (tone: 'ok' | 'warn' | 'muted', text: string) => `<span class="pill st-${tone}">${esc(text)}</span>`;
 
 /** The strategy's day-90 measures that a test run can show, with the trend across recorded runs. */
@@ -111,10 +120,18 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
     const body = ENDPOINTS.filter((e) => e.area === a).map((ep) => {
       const cells = ROLES.map((role) => {
         const hits = rows.filter((r) => r.endpoint === ep.id && r.role === role);
-        if (!hits.length) return '<td class="cell none" title="not covered">·</td>';
+        const head = `${role} · ${ep.method} ${ep.path}`;
+        if (!hits.length) return `<td class="cell none" tabindex="0" data-tip="${esc(`${head}\nNo test covers this role yet`)}">·</td>`;
         const worst = (['failed', 'fixed', 'flaky', 'known-bug', 'skipped', 'passed'] as const).find((res) => hits.some((h) => h.result === res))!;
         const expect = allows(ep, role) ? 'allowed' : 'refused';
-        return `<td class="cell ${worst}" title="${esc(`${role}: should be ${expect}; ${hits.length} test(s); ${worst}`)}">${allows(ep, role) ? '✓' : '✗'}</td>`;
+        // Worst results first, so the test that colored the cell is the first one listed.
+        const order = ['failed', 'fixed', 'flaky', 'known-bug', 'skipped', 'passed'];
+        const listed = [...hits].sort((x, y) => order.indexOf(x.result) - order.indexOf(y.result));
+        // The spec file names the kind of check (access-matrix, isolation, auth) and separates same-named tests.
+        const lines = listed.slice(0, 5).map((h) => `${RESULT_WORDS[h.result]}: ${h.file.replace(/^.*\/|\.spec\.ts$/g, '')} › ${h.title}`);
+        if (listed.length > 5) lines.push(`and ${listed.length - 5} more`);
+        const tip = [head, `Should be ${expect}`, ...lines].join('\n');
+        return `<td class="cell ${worst}" tabindex="0" data-tip="${esc(tip)}">${allows(ep, role) ? '✓' : '✗'}</td>`;
       });
       return `<tr><th><code>${esc(ep.method)} ${esc(ep.path)}</code></th>${cells.join('')}</tr>`;
     });
@@ -151,6 +168,8 @@ th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;verti
 .pill{display:inline-block;white-space:nowrap;padding:1px 8px;border-radius:99px;font-size:12px;background:#eef1f4}.pill.product-bug,.pill.sev-critical{background:#fde8e6;color:var(--bad)}
 .pill.test-bug,.pill.sev-high{background:#fdf1d8;color:var(--warn)}.pill.flaky{background:#efe6fb;color:#6b3fa0}.pill.environment{background:#e3eefa;color:var(--accent)}
 .pill.fixed,.pill.st-ok{background:#e6f4ec;color:var(--ok)}.pill.st-warn{background:#fdf1d8;color:var(--warn)}.pill.st-muted{color:var(--muted)}
+.cell[data-tip]{cursor:help}.cell:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#tip{position:fixed;z-index:10;max-width:min(380px,calc(100vw - 16px));white-space:pre-line;background:var(--ink);color:#fff;font-size:12.5px;line-height:1.45;padding:8px 10px;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
 .trend{color:var(--accent);width:140px}.spark{display:block}tbody th{font-weight:600}.legend{color:var(--muted);font-size:13px}a{color:var(--accent)}
 </style></head><body><main>
 <h1>Juice Shop test run</h1>
@@ -170,11 +189,31 @@ ${pendingRows.length ? `<div class="scroll"><table><thead><tr><th>Likely cause</
 ${bugRows.length ? `<div class="scroll"><table><thead><tr><th>Bug</th><th>Severity</th><th>Area</th><th>Title</th><th class="num">Failing tests</th><th>Approved</th></tr></thead><tbody>${bugRows.join('')}</tbody></table></div>` : '<p>No approved bugs yet.</p>'}
 
 <h2>Coverage: every endpoint, every role</h2>
-<p class="legend">✓ the role may call it · ✗ it must be refused · green as intended · amber open bug · red new failure · grey not run. Hover a cell for detail.</p>
+<p class="legend">✓ the role may call it · ✗ it must be refused · green as intended · amber open bug · red new failure · purple flaky · grey not run. Hover or tap a cell to see its tests.</p>
 ${grid.join('')}
 
 ${runHistory(history)}
-</main></body></html>`;
+</main>
+<div id="tip" role="tooltip" hidden></div>
+<script>
+// Fixed position, so the tip isn't clipped by the scrolling table wrappers.
+const tip = document.getElementById('tip');
+function show(cell) {
+  tip.textContent = cell.dataset.tip;
+  tip.hidden = false;
+  const c = cell.getBoundingClientRect(), t = tip.getBoundingClientRect();
+  const x = Math.min(Math.max(8, c.left + c.width / 2 - t.width / 2), innerWidth - t.width - 8);
+  const y = c.top - t.height - 6 < 8 ? c.bottom + 6 : c.top - t.height - 6;
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
+}
+const hide = () => { tip.hidden = true; };
+document.addEventListener('mouseover', (e) => { const c = e.target.closest('[data-tip]'); c ? show(c) : hide(); });
+document.addEventListener('focusin', (e) => { const c = e.target.closest('[data-tip]'); if (c) show(c); });
+document.addEventListener('focusout', hide);
+addEventListener('scroll', hide, true);
+</script>
+</body></html>`;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
