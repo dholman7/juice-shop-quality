@@ -288,9 +288,22 @@ test.describe('R3 passwords', () => {
 
     // Assert
     expect(res.status()).toBe(200);
-    expect(await res.text()).not.toMatch(/"password"/);
     await expect(login(request, customer.account!.email, next)).resolves.toBeTruthy();
     await expect(login(request, customer.account!.email, customer.account!.password)).rejects.toThrow(/401/);
+  });
+
+  // Separate from the test above, so an open hash bug can't hide a broken password change.
+  test('the password change response does not return the password hash', covers('password.change', 'customer'), async ({ customer }) => {
+    // Arrange
+    const next = 'Another-Passw0rd!';
+    const q = new URLSearchParams({ current: customer.account!.password, new: next, repeat: next });
+
+    // Act
+    const res = await customer.get(`/rest/user/change-password?${q}`);
+
+    // Assert
+    expect(res.status()).toBe(200);
+    expect(await res.text()).not.toMatch(/"password"/);
   });
 
   test('changing the password is refused without a session', covers('password.change', 'anonymous'), async ({ anonymous }) => {
@@ -310,8 +323,20 @@ test.describe('R3 passwords', () => {
 
     // Assert
     expect(res.status()).toBe(200);
-    expect(await res.text()).not.toMatch(/"password"/);
     await expect(login(request, email, 'Reset-Passw0rd!')).resolves.toBeTruthy();
+  });
+
+  // Separate from the test above, so an open hash bug can't hide a broken reset.
+  test('the password reset response does not return the password hash', covers('password.reset', 'anonymous'), async ({ request }) => {
+    // Arrange
+    const { email } = await register(request);
+
+    // Act
+    const res = await request.post('/rest/user/reset-password', { data: { email, answer: SECURITY_ANSWER, new: 'Reset-Passw0rd!', repeat: 'Reset-Passw0rd!' } });
+
+    // Assert
+    expect(res.status()).toBe(200);
+    expect(await res.text()).not.toMatch(/"password"/);
   });
 
   test('reset with a wrong security answer changes nothing', covers('password.reset', 'anonymous'), async ({ request }) => {

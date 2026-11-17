@@ -140,9 +140,7 @@
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 login › the session token does not carry the password hash",
-        "api/auth.spec.ts › R3 login › records the login IP without returning the password hash",
-        "api/auth.spec.ts › R3 passwords › a changed password works and the old one stops working",
-        "api/auth.spec.ts › R3 passwords › reset with the right security answer sets a new password"
+        "api/auth.spec.ts › R3 login › records the login IP without returning the password hash"
       ],
       "endpoints": [
         "auth.login",
