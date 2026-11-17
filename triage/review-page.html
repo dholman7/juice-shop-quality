@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juice Shop review</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2430;--muted:#5c6675;--line:#dfe3e8;--accent:#1f5fbf;--ok:#1d7a46;--bad:#b42318;--warn:#a15c00;--soft:#eef2f7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+main{max-width:920px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:17px;margin:32px 0 4px}
+.sub{color:var(--muted);margin:0 0 12px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between;margin-bottom:8px}
+label{font-weight:600}
+input[type=text],select,textarea{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+input[type=text],textarea{width:100%}
+textarea{min-height:56px;resize:vertical}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0}
+.card h3{margin:0 0 8px;font-size:15px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:4px 12px;margin:8px 0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;overflow-wrap:anywhere}
+code,pre{font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--soft);padding:8px 10px;border-radius:6px;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;background:var(--soft);white-space:nowrap}
+.sev-critical{background:#fde8e6;color:var(--bad)}.sev-high,.sev-medium{background:#fdf1d8;color:var(--warn)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+button{font:inherit;padding:7px 14px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.danger{color:var(--bad);border-color:#f0c4bf}
+button:disabled{opacity:.5;cursor:default}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:12px 0 0}
+legend{font-weight:600;padding:0 4px}
+.choice{display:flex;gap:8px;align-items:flex-start;padding:4px 0}
+.choice input{margin-top:4px}
+.hint{color:var(--muted);font-size:13px}
+.why{color:var(--muted);font-size:13px;margin-left:24px}
+.scores{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;margin-top:8px}
+.scores > div{display:flex;flex-direction:column;gap:4px}
+.result{font-weight:600}
+.msg{margin-top:8px;font-size:14px}
+.msg.err{color:var(--bad)}
+.msg.ok{color:var(--ok)}
+.empty{color:var(--muted)}
+.done{background:#e6f4ec;border-color:#b9dfc8}
+details summary{cursor:pointer;color:var(--accent)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Review</h1>
+      <p class="sub">Decide what the last test run found. Nothing is filed until you record it here.</p>
+    </div>
+    <div style="min-width:240px">
+      <label for="who">Reviewing as</label>
+      <input id="who" type="text" autocomplete="name">
+    </div>
+  </header>
+  <div id="app"><p class="empty">Loading…</p></div>
+</main>
+<div id="toast" role="status"></div>
+<script>
+'use strict';
+let S = null;
+const later = new Set();
+
+// Builds an element; strings become text, never HTML.
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k === 'class') el.className = v;
+    else if (v === true) el.setAttribute(k, '');
+    else el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid instanceof Node ? kid : String(kid));
+  return el;
+}
+const pill = (sev) => h('span', { class: `pill sev-${sev}` }, sev);
+const band = (i, l) => { const r = i * l; return r >= 20 ? 'critical' : r >= 12 ? 'high' : r >= 6 ? 'medium' : 'low'; };
+
+function toast(text) {
+  const t = document.getElementById('toast');
+  t.textContent = text; t.classList.add('show');
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+const whoInput = document.getElementById('who');
+function reviewerName() { return whoInput.value.trim(); }
+whoInput.addEventListener('change', () => { try { localStorage.setItem('reviewer', reviewerName()); } catch {} });
+
+async function post(path, body, msgEl) {
+  if (!reviewerName()) { whoInput.focus(); show(msgEl, 'Enter your name as the reviewer first.', true); return; }
+  try {
+    const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, reviewer: reviewerName() }) });
+    const out = await res.json();
+    if (!res.ok) return show(msgEl, out.error || 'Not recorded.', true);
+    toast(out.message);
+    await load();
+  } catch (e) {
+    show(msgEl, 'Could not reach the review server. Is `yarn review` still running?', true);
+  }
+}
+function show(el, text, isError) { el.textContent = text; el.className = `msg ${isError ? 'err' : 'ok'}`; }
+
+// Impact and likelihood pickers with the severity they give, updated as they change.
+function scorePicker(current) {
+  const pick = (name, help, value) => h('div', {},
+    h('label', {}, name), h('span', { class: 'hint' }, help),
+    h('select', { 'data-score': name.toLowerCase() }, h('option', { value: '' }, '–'),
+      [1, 2, 3, 4, 5].map((n) => h('option', { value: n, selected: n === value }, n))));
+  const result = h('span', { class: 'result' });
+  const wrap = h('div', { class: 'scores' },
+    pick('Impact', S.scoreHelp.impact, current?.impact), pick('Likelihood', S.scoreHelp.likelihood, current?.likelihood), result);
+  const read = () => {
+    const i = Number(wrap.querySelector('[data-score=impact]').value);
+    const l = Number(wrap.querySelector('[data-score=likelihood]').value);
+    return i && l ? { impact: i, likelihood: l } : null;
+  };
+  const update = () => { const s = read(); result.replaceChildren(s ? h('span', {}, `I${s.impact} × L${s.likelihood} = ${s.impact * s.likelihood} → `, pill(band(s.impact, s.likelihood))) : ''); };
+  wrap.addEventListener('change', update); update();
+  return { el: wrap, read };
+}
+
+function severityCard(b) {
+  const msg = h('div', { class: 'msg' });
+  const scores = scorePicker(b);
+  const reason = h('textarea', { placeholder: 'Why these scores? (required)' });
+  const change = h('div', { hidden: true }, scores.el, h('div', { style: 'margin-top:8px' }, reason),
+    h('div', { class: 'row' }, h('button', { class: 'primary', onclick: () => {
+      const s = scores.read();
+      if (!s) return show(msg, 'Pick both scores.', true);
+      post('/api/rescore', { bugId: b.id, ...s, reason: reason.value }, msg);
+    } }, 'Save scores')));
+  return h('div', { class: 'card' },
+    h('h3', {}, `${b.id} · ${b.jira} · ${b.title}`),
+    h('p', {}, 'Registered as ', pill(b.severity),
+      b.band ? h('span', {}, `, but its score I${b.impact} × L${b.likelihood} = ${b.impact * b.likelihood} gives `, pill(b.band), '.') : ', and it has no scores yet.'),
+    h('div', { class: 'row' },
+      b.band ? h('button', { class: 'primary', onclick: () => post('/api/rescore', { bugId: b.id, impact: b.impact, likelihood: b.likelihood, reason: `matches I${b.impact} × L${b.likelihood} = ${b.impact * b.likelihood}` }, msg) }, `Set to ${b.band}`) : null,
+      h('button', { onclick: () => { change.hidden = !change.hidden; } }, b.band ? 'The scores are wrong: change them' : 'Score it')),
+    change, msg);
+}
+
+function groupCard(g, n, total) {
+  const msg = h('div', { class: 'msg' });
+  const name = `cause-${g.groupId}`;
+  const causes = h('fieldset', {}, h('legend', {}, 'What is it?'),
+    S.categories.map((c) => h('label', { class: 'choice' },
+      h('input', { type: 'radio', name, value: c, checked: c === g.cause }),
+      h('span', {}, h('b', {}, c), c === g.cause ? ' (suggested)' : '', h('br'), h('span', { class: 'hint' }, S.causes[c].replace(/\s+→/, ' →'))))));
+  const bugPanel = bugChooser(g);
+  const cause = () => causes.querySelector(`input[name="${name}"]:checked`)?.value;
+  const sync = () => { bugPanel.el.hidden = cause() !== 'product-bug'; };
+  causes.addEventListener('change', sync); sync();
+  const tests = g.tests.length > 1
+    ? h('details', {}, h('summary', {}, `${g.tests.length} tests`), h('pre', {}, g.tests.join('\n')))
+    : h('code', {}, g.tests[0]);
+  return h('div', { class: 'card' },
+    h('h3', {}, `Group ${n} of ${total} · ${g.tests.length} failing test${g.tests.length > 1 ? 's' : ''}, one shared defect`),
+    h('dl', { class: 'kv' },
+      h('dt', {}, 'Rule'), h('dd', {}, g.rule),
+      h('dt', {}, 'Evidence'), h('dd', {}, h('pre', {}, g.evidence)),
+      h('dt', {}, 'Suggested'), h('dd', {}, h('b', {}, g.cause), ` (${g.confidence} confidence, ${g.by}). ${g.why}`, g.downgradedBecause ? ` Downgraded: ${g.downgradedBecause}` : ''),
+      h('dt', {}, 'Tests'), h('dd', {}, tests),
+      h('dt', {}, 'Roles'), h('dd', {}, g.roles.join(', '))),
+    causes, bugPanel.el,
+    h('div', { class: 'row' },
+      h('button', { class: 'primary', onclick: () => {
+        const c = cause();
+        if (c !== 'product-bug') return post('/api/decide', { groupId: g.groupId, verdict: 'decide', category: c }, msg);
+        const target = bugPanel.target();
+        if (target.error) return show(msg, target.error, true);
+        post('/api/decide', { groupId: g.groupId, verdict: 'decide', category: c, target }, msg);
+      } }, 'Record decision'),
+      h('button', { class: 'danger', title: 'The test asks for something the product never promised. Nothing is filed.', onclick: () => post('/api/decide', { groupId: g.groupId, verdict: 'reject' }, msg) }, 'Reject: not a real requirement'),
+      h('button', { onclick: () => { later.add(g.groupId); render(); } }, 'Decide later')),
+    msg);
+}
+
+// Same defect as an open bug (suggested or searched), or a new bug with its Jira key and scores.
+function bugChooser(g) {
+  const name = `bug-${g.groupId}`;
+  const option = (b, reasons) => h('label', { class: 'choice' },
+    h('input', { type: 'radio', name, value: b.id }),
+    h('span', {}, h('b', {}, `${b.id} · ${b.jira}`), ' ', pill(b.severity), ' ', b.title, reasons ? h('div', { class: 'hint' }, reasons.join(' · ')) : null));
+  const searchResults = h('div');
+  const search = h('input', { type: 'text', placeholder: 'Search open bugs by word or Jira key, e.g. hash', oninput: async () => {
+    const q = search.value.trim();
+    if (!q) return searchResults.replaceChildren();
+    const found = await (await fetch(`/api/search?q=${encodeURIComponent(q)}`)).json();
+    searchResults.replaceChildren(...(found.length ? found.map((b) => option(b)) : [h('p', { class: 'hint' }, `No open bug title contains "${q}".`)]));
+  } });
+  const jira = h('input', { type: 'text', placeholder: 'e.g. SHOP-240' });
+  const title = h('input', { type: 'text', value: g.suggestedTitle });
+  const scores = scorePicker();
+  const newBug = h('div', { hidden: true, style: 'margin:6px 0 0 24px' },
+    h('label', {}, 'Jira key it is reported in'), jira,
+    h('p', { class: 'hint' }, 'A key already on file adds this group to that bug.'),
+    h('label', {}, 'Bug title'), title, scores.el);
+  const el = h('fieldset', {}, h('legend', {}, 'Which bug?'),
+    g.candidates.length ? [h('p', { class: 'hint' }, 'Possibly the same defect as:'), g.candidates.map((c) => option(c, c.reasons))]
+      : h('p', { class: 'hint' }, `No open bug looks like this one (${S.openBugs} checked by endpoint and title). Search if you think it's filed.`),
+    h('div', { style: 'margin:8px 0' }, search), searchResults,
+    h('label', { class: 'choice' }, h('input', { type: 'radio', name, value: 'new' }), h('b', {}, 'A new bug')), newBug);
+  el.addEventListener('change', () => { newBug.hidden = el.querySelector(`input[name="${name}"]:checked`)?.value !== 'new'; });
+  const target = () => {
+    const picked = el.querySelector(`input[name="${name}"]:checked`)?.value;
+    if (!picked) return { error: 'Choose an open bug, or "A new bug".' };
+    if (picked !== 'new') return { existing: picked };
+    const s = scores.read();
+    if (!jira.value.trim()) return { error: 'Enter the Jira key the bug is reported in.' };
+    if (!s) return { error: 'Pick impact and likelihood.' };
+    return { jira: jira.value, title: title.value, ...s };
+  };
+  return { el, target };
+}
+
+function findingCard(f) {
+  const msg = h('div', { class: 'msg' });
+  const note = h('textarea', { placeholder: 'Note if filing; reason (required) if dismissing' });
+  return h('div', { class: 'card' },
+    h('h3', {}, `${f.name} `, h('span', { class: `pill sev-${f.risk === 'high' ? 'critical' : 'medium'}` }, f.risk)),
+    h('dl', { class: 'kv' },
+      h('dt', {}, 'Seen on'), h('dd', {}, `${f.count} URL(s), e.g. `, h('code', {}, f.example)),
+      h('dt', {}, 'What'), h('dd', {}, f.description.slice(0, 400)),
+      h('dt', {}, 'Fix'), h('dd', {}, f.solution.slice(0, 400)),
+      h('dt', {}, 'ZAP rule'), h('dd', {}, `${f.ref}${f.cwe ? `, CWE-${f.cwe}` : ''}, ${f.confidence} confidence`)),
+    note,
+    h('div', { class: 'row' },
+      h('button', { class: 'primary', onclick: () => post('/api/zap', { ref: f.ref, risk: f.risk, verdict: 'bug', reason: note.value }, msg) }, 'File as a bug'),
+      h('button', { onclick: () => post('/api/zap', { ref: f.ref, risk: f.risk, verdict: 'dismissed', reason: note.value }, msg) }, 'Dismiss: not a risk here')),
+    msg);
+}
+
+function section(title, sub, items) {
+  return [h('h2', {}, title), h('p', { class: 'sub' }, sub), ...(items.length ? items : [h('p', { class: 'empty' }, 'Nothing to decide.')])];
+}
+
+function render() {
+  const app = document.getElementById('app');
+  const groups = S.groups.filter((g) => !later.has(g.groupId));
+  const zap = S.zap || [];
+  const left = S.severity.length + groups.length + zap.length;
+  app.replaceChildren(
+    left ? h('p', {}, `${left} item${left > 1 ? 's' : ''} to decide.${later.size ? ` ${later.size} left for later.` : ''}`)
+      : h('div', { class: 'card done' }, h('h3', {}, 'All decided.'),
+        h('p', {}, 'Run ', h('code', {}, 'yarn all'), ' to confirm it passes, then commit ', h('code', {}, 'known-bugs.json'), ', ',
+          h('code', {}, 'triage/decisions.jsonl'), ', ', h('code', {}, 'security/zap-findings.json'), ' and ', h('code', {}, 'docs/coverage.md'), '.')),
+    ...(S.severity.length ? section('Severity check', 'Severity is impact × likelihood: 20+ critical, 12+ high, 6+ medium, else low. These bugs don\'t match their score, so the run fails until they do.', S.severity.map(severityCard)) : []),
+    ...section('Failure groups', S.hasProposals ? 'Each group is one defect, seen by one or more failing tests. Is the rule right, and does the evidence show it broken?' : 'No triage results yet: run yarn all first.', groups.map((g, i) => groupCard(g, i + 1, groups.length))),
+    ...(S.zap ? section('Security scan findings', 'New medium and high findings from the ZAP scan. Each fails the run until filed or dismissed.', zap.map(findingCard)) : []),
+  );
+}
+
+async function load() {
+  S = await (await fetch('/api/state')).json();
+  if (!whoInput.value) {
+    let saved = '';
+    try { saved = localStorage.getItem('reviewer') || ''; } catch {}
+    whoInput.value = saved || S.reviewer;
+  }
+  render();
+}
+load().catch(() => { document.getElementById('app').replaceChildren(h('p', { class: 'msg err' }, 'Could not reach the review server. Start it with yarn review.')); });
+</script>
+</body>
+</html>

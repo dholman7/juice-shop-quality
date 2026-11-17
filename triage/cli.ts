@@ -4,35 +4,27 @@
  *   yarn triage                          propose a category for each failure group (heuristic, offline)
  *   TRIAGE_PROVIDER=claude yarn triage   same, classified by Claude through the local `claude` CLI
  *   yarn triage:review                   a person accepts, changes, or rejects each proposal
- *   yarn triage:rate                     a person changes an open bug's severity, with a reason
+ *   yarn triage:rate                     a person re-scores an open bug's impact and likelihood, with a reason
+ *   yarn review                          the same reviews on a local web page (review-page.ts)
  *
  * Proposals are only suggestions. Nothing reaches known-bugs.json until a reviewer accepts it.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KNOWN_BUGS_PATH, findBug, isScore, jiraKey, loadKnownBugs, rescore, severityFor, severityMismatches, type KnownBug } from '../src/known-bugs';
-import { endpoint as catalogEndpoint } from '../src/catalog';
+import { findBug, isScore, jiraKey, loadKnownBugs, rescore, severityFor, severityMismatches, type KnownBug } from '../src/known-bugs';
 import { collectFailures, groupFailures } from './collect';
 import { classify } from './heuristic';
 import { classifyWithModel } from './model';
 import { findCandidates, searchBugs } from './duplicates';
 import { CATEGORIES, type Category, type Decision, type FailureGroup, type Proposal } from './types';
+import {
+  CAUSES, OUT, PROPOSALS, SCORE_HELP, appendDecision, areaOf, fileBug, loadRun, pendingProposals, reviewer, ruleOf, saveBugs, today,
+  type BugTarget, type TriageRun,
+} from './review-core';
 
-// Proposals are per run (regenerated, not committed); decisions are the committed audit trail.
-const OUT = 'reports/triage';
-const PROPOSALS = `${OUT}/proposals.json`;
-const DECISIONS = 'triage/decisions.jsonl';
-
-/** One triage pass: which provider ran, the groups, and one proposal per group. */
-export interface TriageRun {
-  provider: string;
-  createdAt: string;
-  groups: FailureGroup[];
-  proposals: Proposal[];
-}
+export type { TriageRun } from './review-core';
 
 /** Collects, groups, and classifies the last run's failures, then writes the proposals for review. Applies nothing. */
 export function propose(provider = process.env.TRIAGE_PROVIDER ?? 'heuristic', reportPath?: string): TriageRun {
@@ -43,49 +35,6 @@ export function propose(provider = process.env.TRIAGE_PROVIDER ?? 'heuristic', r
   writeFileSync(PROPOSALS, JSON.stringify(run, null, 2));
   return run;
 }
-
-/** The name recorded on every decision and approved bug: REVIEWER, else the git user name. */
-function reviewer(): string {
-  if (process.env.REVIEWER) return process.env.REVIEWER;
-  try {
-    return execFileSync('git', ['config', 'user.name'], { encoding: 'utf8' }).trim() || 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
-
-function nextBugId(bugs: KnownBug[]): string {
-  const max = Math.max(0, ...bugs.map((b) => Number(b.id.replace('BUG-', ''))));
-  return `BUG-${String(max + 1).padStart(3, '0')}`;
-}
-
-/** The intended access rule in plain words, so a reviewer can judge without opening src/catalog.ts. */
-function accessRule(id: string): string {
-  const ep = catalogEndpoint(id);
-  const who = ep.access === 'public' ? 'anyone, including signed-out visitors, may call it'
-    : ep.access === 'authenticated' ? 'any signed-in user may call it'
-      : ep.access === 'owner' ? "only the customer who owns the record; others must be refused (401/403)"
-        : ep.access === 'nobody' ? 'no one may call it through the API; every caller must be refused (401/403)'
-          : `only ${ep.access.join(' and ')} may call it; everyone else must be refused (401/403)`;
-  return `${ep.method} ${ep.path}: ${who}${ep.note ? ` (${ep.note})` : ''}`;
-}
-
-/**
- * The test's own risk area (named in its describe title), else its endpoint's. An R3 login test that probes
- * a basket endpoint with a forged token is an R3 bug, not R1. Matches the report's by-area table.
- */
-function areaOf(f: FailureGroup['failures'][number]): string {
-  return f.key.match(/\bR[123]\b/)?.[0] ?? (f.endpoint ? catalogEndpoint(f.endpoint).area : 'unknown');
-}
-
-/** What each likely cause means and what happens when it's accepted, shown once at the top of a review. */
-const CAUSES: Record<Category, string> = {
-  'product-bug': 'the app broke a rule      → becomes a tracked bug (known-bugs.json); developers fix the product',
-  'test-bug': 'the test itself is wrong  → recorded for the test owner to fix; no bug filed',
-  environment: 'app or network was down   → recorded; re-run, nobody\'s code is at fault',
-  flaky: 'passed on retry           → recorded; the test needs fixing, not the product',
-  'needs-human': 'not enough evidence       → open the trace and decide',
-};
 
 function legend(who: string, count: number): void {
   console.log(`${count} group(s) to review as ${who}. Each group is one defect, seen by one or more tests.`);
@@ -98,9 +47,7 @@ function legend(who: string, count: number): void {
 function show(group: FailureGroup, p: Proposal, index: number, total: number): void {
   const f = group.failures[0];
   console.log(`\n[${index + 1}/${total}] ${group.id}  ${group.failures.length} failing test(s), one shared defect`);
-  // A role-matrix test checks the catalog's access rule; a behavior test's title states its own rule.
-  const matrix = f.file.includes('access-matrix');
-  console.log(`  rule:      ${matrix && f.endpoint ? accessRule(f.endpoint) : `${f.title} (the test title is the requirement)`}`);
+  console.log(`  rule:      ${ruleOf(group)}`);
   console.log(`  tests:     ${group.failures.slice(0, 5).map((x) => x.key).join('\n             ')}${group.failures.length > 5 ? `\n             … and ${group.failures.length - 5} more` : ''}`);
   console.log(`  roles:     ${[...new Set(group.failures.map((x) => x.role ?? '-'))].join(', ')}`);
   const by = p.source === 'model' ? 'Claude' : 'offline rules';
@@ -117,12 +64,8 @@ function show(group: FailureGroup, p: Proposal, index: number, total: number): v
  * Groups decided on an earlier run are skipped, so re-running only asks about new defects.
  */
 async function review(): Promise<void> {
-  if (!existsSync(PROPOSALS)) throw new Error('No proposals yet. Run `yarn triage` first.');
-  const run = JSON.parse(readFileSync(PROPOSALS, 'utf8')) as TriageRun;
-  const decided = new Set(
-    existsSync(DECISIONS) ? readFileSync(DECISIONS, 'utf8').trim().split('\n').filter(Boolean).map((l) => (JSON.parse(l) as Decision).groupId) : [],
-  );
-  const pending = run.proposals.filter((p) => !decided.has(p.groupId));
+  const run = loadRun();
+  const pending = pendingProposals(run);
   const who = reviewer();
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   if (!(await severityCheck(rl, who))) {
@@ -164,43 +107,30 @@ async function review(): Promise<void> {
     if (decision.verdict !== 'rejected' && category === 'product-bug') {
       const bugs = loadKnownBugs();
       const picked = await pickExisting(rl, group, p.suggestedTitle ?? group.failures[0].title, bugs);
-      // A new bug is reported first: its Jira key comes before the title. A key already on file means the same bug.
-      const jira = picked ? undefined : await askJira(rl);
-      const bug = picked ?? (jira ? findBug(bugs, jira) : undefined);
-      if (bug && !picked) console.log(`  ${jira} is ${bug.id}; adding this group to it`);
-      const keys = group.failures.map((f) => f.key);
-      const endpoints = [...new Set(group.failures.map((f) => f.endpoint).filter((e): e is string => Boolean(e)))];
-      if (bug) {
-        bug.tests = [...new Set([...bug.tests, ...keys])];
-        bug.endpoints = [...new Set([...(bug.endpoints ?? []), ...endpoints])];
-        decision.bugId = bug.id;
-      } else if (jira) {
-        const title = (await rl.question(`  bug title [${p.suggestedTitle ?? group.failures[0].title}]: `)).trim() || p.suggestedTitle || group.failures[0].title;
-        const impact = await askScore(rl, 'impact');
-        const likelihood = await askScore(rl, 'likelihood');
-        const severity = severityFor(impact, likelihood);
-        console.log(`  severity:  ${severity} (I${impact} × L${likelihood} = ${impact * likelihood})`);
-        const created: KnownBug = {
-          id: nextBugId(bugs),
-          jira,
-          title,
-          severity,
-          impact,
-          likelihood,
-          area: areaOf(group.failures[0]),
-          tests: keys,
-          endpoints,
-          approvedBy: who,
-          approvedOn: today(),
-        };
-        bugs.push(created);
-        decision.bugId = created.id;
-        decision.title = title;
+      let target: BugTarget;
+      if (picked) target = { existing: picked.id };
+      else {
+        // A new bug is reported first: its Jira key comes before the title. A key already on file means the same bug.
+        const jira = await askJira(rl);
+        const onFile = findBug(bugs, jira);
+        if (onFile) {
+          console.log(`  ${jira} is ${onFile.id}; adding this group to it`);
+          target = { existing: onFile.id };
+        } else {
+          const title = (await rl.question(`  bug title [${p.suggestedTitle ?? group.failures[0].title}]: `)).trim() || p.suggestedTitle || group.failures[0].title;
+          const impact = await askScore(rl, 'impact');
+          const likelihood = await askScore(rl, 'likelihood');
+          console.log(`  severity:  ${severityFor(impact, likelihood)} (I${impact} × L${likelihood} = ${impact * likelihood})`);
+          target = { jira, title, impact, likelihood };
+        }
       }
-      save(bugs);
+      const filed = fileBug(bugs, group, target, who, today());
+      saveBugs(filed.bugs);
+      decision.bugId = filed.bugId;
+      if (filed.created) decision.title = filed.created.title;
       console.log(`  recorded as ${decision.bugId}`);
     }
-    appendFileSync(DECISIONS, `${JSON.stringify(decision)}\n`);
+    appendDecision(decision);
   }
   rl.close();
 }
@@ -253,11 +183,6 @@ async function askJira(rl: ReturnType<typeof createInterface>): Promise<string> 
   }
 }
 
-const SCORE_HELP = {
-  impact: 'harm to customers, money, or the business; 5 = every customer\'s data or money',
-  likelihood: 'how easily it is hit; 5 = a plain request, 3 = needs a specific condition, 1 = unlikely',
-} as const;
-
 /** A 1–5 score. Enter keeps `current` when there is one; anything else asks again. */
 async function askScore(rl: ReturnType<typeof createInterface>, kind: keyof typeof SCORE_HELP, current?: number): Promise<number> {
   for (;;) {
@@ -267,12 +192,6 @@ async function askScore(rl: ReturnType<typeof createInterface>, kind: keyof type
     if (raw && isScore(n)) return n;
     console.log('  a whole number from 1 to 5');
   }
-}
-
-const today = (): string => new Date().toISOString().slice(0, 10);
-
-function save(bugs: KnownBug[]): void {
-  writeFileSync(KNOWN_BUGS_PATH, `${JSON.stringify({ bugs }, null, 2)}\n`);
 }
 
 /** New scores for one bug, with a reason; the severity follows. Returns false if nothing was changed. */
@@ -291,7 +210,7 @@ async function changeScores(rl: ReturnType<typeof createInterface>, bug: KnownBu
     return false;
   }
   const bugs = loadKnownBugs();
-  save(bugs.map((b) => (b.id === bug.id ? rescore(b, impact, likelihood, reason, who, today()) : b)));
+  saveBugs(bugs.map((b) => (b.id === bug.id ? rescore(b, impact, likelihood, reason, who, today()) : b)));
   console.log(to === bug.severity ? `  ${bug.id}: scores recorded, still ${to}` : `  ${bug.id}: ${bug.severity} → ${to}`);
   return true;
 }
@@ -315,7 +234,7 @@ async function severityCheck(rl: ReturnType<typeof createInterface>, who: string
     if (answer === 'l') continue;
     if (answer === '' && band) {
       const bugs = loadKnownBugs();
-      save(bugs.map((b) => (b.id === bug.id ? rescore(b, bug.impact, bug.likelihood, `matches I${bug.impact} × L${bug.likelihood} = ${bug.impact * bug.likelihood}`, who, today()) : b)));
+      saveBugs(bugs.map((b) => (b.id === bug.id ? rescore(b, bug.impact, bug.likelihood, `matches I${bug.impact} × L${bug.likelihood} = ${bug.impact * bug.likelihood}`, who, today()) : b)));
       console.log(`  ${bug.id}: ${bug.severity} → ${band}`);
     } else await changeScores(rl, bug, who);
   }

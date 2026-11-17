@@ -160,20 +160,34 @@ function reviewer(): string {
   return res.stdout?.trim() || 'unknown';
 }
 
+/** New findings from the last scan with no decision yet; one decided since the scan drops out before the next. */
+export function undecided(summary: ZapSummary, decisions = loadDecisions()): Finding[] {
+  return summary.newFindings.filter((f) => !decisions.some((d) => d.ref === f.ref && d.risk === f.risk));
+}
+
+/** Records a person's decision on a finding. A dismissal needs a reason. */
+export function recordDecision(f: Finding, verdict: FindingDecision['verdict'], reason: string, who: string, on: string): FindingDecision {
+  if (verdict === 'dismissed' && !reason.trim()) throw new Error('a dismissal needs a reason');
+  const decision: FindingDecision = { ref: f.ref, name: f.name, risk: f.risk, verdict, reason: reason.trim(), decidedBy: who, decidedOn: on };
+  writeFileSync(DECISIONS_PATH, `${JSON.stringify({ findings: [...loadDecisions(), decision] }, null, 2)}\n`);
+  return decision;
+}
+
 /** The human gate for scan findings: file each new one as a bug or dismiss it with a reason. */
 async function review(): Promise<void> {
   const summary = readSummary();
   if (!summary) throw new Error('No scan yet. Run `yarn security:zap` first.');
-  if (!summary.newFindings.length) {
+  const pending = undecided(summary);
+  if (!pending.length) {
     console.log('No new medium or high findings to review.');
     return;
   }
   const who = reviewer();
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  console.log(`${summary.newFindings.length} finding(s) to review as ${who}.`);
+  console.log(`${pending.length} finding(s) to review as ${who}.`);
   console.log('[b] file as a bug (stays visible, stops failing the run)  [d] dismiss: not a risk here, reason required  [s] decide later  [q] quit');
-  for (const [i, f] of summary.newFindings.entries()) {
-    console.log(`\n[${i + 1}/${summary.newFindings.length}] ${f.name}  (${f.risk}, ${f.confidence} confidence, ZAP rule ${f.ref}${f.cwe ? `, CWE-${f.cwe}` : ''})`);
+  for (const [i, f] of pending.entries()) {
+    console.log(`\n[${i + 1}/${pending.length}] ${f.name}  (${f.risk}, ${f.confidence} confidence, ZAP rule ${f.ref}${f.cwe ? `, CWE-${f.cwe}` : ''})`);
     console.log(`  seen on:   ${f.count} URL(s), e.g. ${f.example}`);
     console.log(`  what:      ${f.description.slice(0, 300)}`);
     console.log(`  fix:       ${f.solution.slice(0, 300)}`);
@@ -185,17 +199,7 @@ async function review(): Promise<void> {
       console.log('  a dismissal needs a reason; left undecided');
       continue;
     }
-    const decisions = loadDecisions();
-    decisions.push({
-      ref: f.ref,
-      name: f.name,
-      risk: f.risk,
-      verdict: answer === 'b' ? 'bug' : 'dismissed',
-      reason,
-      decidedBy: who,
-      decidedOn: new Date().toISOString().slice(0, 10),
-    });
-    writeFileSync(DECISIONS_PATH, `${JSON.stringify({ findings: decisions }, null, 2)}\n`);
+    recordDecision(f, answer === 'b' ? 'bug' : 'dismissed', reason, who, new Date().toISOString().slice(0, 10));
     console.log(`  recorded: ${answer === 'b' ? 'open security bug' : 'dismissed'}`);
   }
   rl.close();

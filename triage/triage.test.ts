@@ -6,6 +6,7 @@ import { classify } from './heuristic';
 import { validate } from './model';
 import { groupFailures, signature } from './collect';
 import { findCandidates, resource, searchBugs, titleSimilarity } from './duplicates';
+import { fileBug } from './review-core';
 import { findBug, isScore, jiraKey, loadKnownBugs, rescore, severityFor, severityMismatches, type KnownBug } from '../src/known-bugs';
 import type { Failure, FailureGroup } from './types';
 
@@ -360,4 +361,54 @@ test('every approved bug has its own valid Jira key and valid scores', () => {
   for (const b of bugs) assert.ok(typeof b.jira === 'string' && jiraKey(b.jira) === b.jira, `${b.id} has no valid Jira key`);
   for (const b of bugs) assert.ok(isScore(b.impact) && isScore(b.likelihood), `${b.id} has no valid impact and likelihood`);
   assert.equal(new Set(keys).size, keys.length, 'two bugs share a Jira key');
+});
+
+test('filing to an open bug by id or Jira key adds the group\'s tests and endpoints', () => {
+  // Arrange
+  const bugs = [bug({ id: 'BUG-008', jira: 'SHOP-221', tests: ['old'], endpoints: ['auth.login'] })];
+  const g = group(failure({ key: 'new test', endpoint: 'password.change' }));
+
+  // Act
+  const byId = fileBug(bugs, g, { existing: 'bug-008' }, 'A', '2026-11-17');
+  const byKey = fileBug(bugs, g, { existing: 'SHOP-221' }, 'A', '2026-11-17');
+
+  // Assert
+  for (const out of [byId, byKey]) {
+    assert.equal(out.bugId, 'BUG-008');
+    assert.equal(out.created, undefined);
+    assert.deepEqual(out.bugs[0].tests, ['old', 'new test']);
+    assert.deepEqual(out.bugs[0].endpoints, ['auth.login', 'password.change']);
+  }
+  assert.deepEqual(bugs[0].tests, ['old'], 'the input list is not changed');
+});
+
+test('a new bug gets the next id, its Jira key, and the severity of its scores', () => {
+  // Act
+  const out = fileBug([bug({ id: 'BUG-026', jira: 'SHOP-239' })], group(failure({ key: 'api/x.spec.ts › R2 checkout › t' })),
+    { jira: ' shop-240 ', title: ' Coupon applies twice ', impact: 3, likelihood: 4 }, 'Dan', '2026-11-17');
+
+  // Assert
+  assert.equal(out.bugId, 'BUG-027');
+  assert.deepEqual(
+    { jira: out.created?.jira, title: out.created?.title, severity: out.created?.severity, area: out.created?.area, by: out.created?.approvedBy },
+    { jira: 'SHOP-240', title: 'Coupon applies twice', severity: 'high', area: 'R2', by: 'Dan' },
+  );
+});
+
+test('a new bug whose Jira key is already on file joins that bug', () => {
+  const out = fileBug([bug({ id: 'BUG-008', jira: 'SHOP-221' })], group(failure()), { jira: 'shop-221', title: 't', impact: 1, likelihood: 1 }, 'A', 'd');
+  assert.equal(out.bugId, 'BUG-008');
+  assert.equal(out.created, undefined);
+});
+
+test('filing refuses an unknown bug, a bad Jira key, a blank title, and bad scores', () => {
+  const bugs = [bug()];
+  const g = group(failure());
+  const newBug = { jira: 'SHOP-300', title: 'ok', impact: 3, likelihood: 3 };
+  assert.throws(() => fileBug(bugs, g, { existing: 'BUG-999' }, 'A', 'd'), /no open bug/);
+  assert.throws(() => fileBug(bugs, g, { ...newBug, jira: 'JIRA' }, 'A', 'd'), /not a Jira key/);
+  assert.throws(() => fileBug(bugs, g, { ...newBug, title: '  ' }, 'A', 'd'), /needs a title/);
+  for (const [impact, likelihood] of [[0, 3], [3, 6], [2.5, 3], [Number.NaN, 3]]) {
+    assert.throws(() => fileBug(bugs, g, { ...newBug, impact, likelihood }, 'A', 'd'), /1 to 5/, `${impact}, ${likelihood}`);
+  }
 });
