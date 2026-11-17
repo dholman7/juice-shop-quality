@@ -15,6 +15,7 @@ import { endpoint as catalogEndpoint } from '../src/catalog';
 import { collectFailures, groupFailures } from './collect';
 import { classify } from './heuristic';
 import { classifyWithModel } from './model';
+import { findCandidates } from './duplicates';
 import { CATEGORIES, type Category, type Decision, type FailureGroup, type Proposal } from './types';
 
 // Proposals are per run (regenerated, not committed); decisions are the committed audit trail.
@@ -66,6 +67,14 @@ function accessRule(id: string): string {
   return `${ep.method} ${ep.path}: ${who}${ep.note ? ` (${ep.note})` : ''}`;
 }
 
+/**
+ * The test's own risk area (named in its describe title), else its endpoint's. An R3 login test that probes
+ * a basket endpoint with a forged token is an R3 bug, not R1. Matches the report's by-area table.
+ */
+function areaOf(f: FailureGroup['failures'][number]): string {
+  return f.key.match(/\bR[123]\b/)?.[0] ?? (f.endpoint ? catalogEndpoint(f.endpoint).area : 'unknown');
+}
+
 /** What each likely cause means and what happens when it's accepted, shown once at the top of a review. */
 const CAUSES: Record<Category, string> = {
   'product-bug': 'the app broke a rule      → becomes a tracked bug (known-bugs.json); developers fix the product',
@@ -97,7 +106,7 @@ function show(group: FailureGroup, p: Proposal, index: number, total: number): v
   console.log(`  why:       ${p.reasoning}`);
   if (p.suggestedTitle) console.log(`  bug title: ${p.suggestedTitle}`);
   // Severity is the risk rating, from the risk area's rank; the likely cause is what broke.
-  if (p.suggestedSeverity) console.log(`  severity:  ${p.suggestedSeverity} (risk area ${f.endpoint ? catalogEndpoint(f.endpoint).area : (f.key.match(/\bR[123]\b/)?.[0] ?? 'unknown')})`);
+  if (p.suggestedSeverity) console.log(`  severity:  ${p.suggestedSeverity} (risk area ${areaOf(f)})`);
 }
 
 /**
@@ -146,22 +155,23 @@ async function review(): Promise<void> {
     // Several groups can be one defect, so the reviewer may add them to an existing bug.
     if (decision.verdict !== 'rejected' && category === 'product-bug') {
       const bugs = loadKnownBugs();
-      const existing = (await rl.question(`  add to an existing bug id, or Enter for a new one: `)).trim();
-      const bug = bugs.find((b) => b.id === existing);
+      const bug = await pickExisting(rl, group, p.suggestedTitle ?? group.failures[0].title, bugs);
       const keys = group.failures.map((f) => f.key);
+      const endpoints = [...new Set(group.failures.map((f) => f.endpoint).filter((e): e is string => Boolean(e)))];
       if (bug) {
         bug.tests = [...new Set([...bug.tests, ...keys])];
+        bug.endpoints = [...new Set([...(bug.endpoints ?? []), ...endpoints])];
         decision.bugId = bug.id;
       } else {
         const title = (await rl.question(`  bug title [${p.suggestedTitle ?? group.failures[0].title}]: `)).trim() || p.suggestedTitle || group.failures[0].title;
         const severity = await askSeverity(rl, p.suggestedSeverity ?? 'medium');
-        const ep = group.failures[0].endpoint;
         const created: KnownBug = {
           id: nextBugId(bugs),
           title,
           severity,
-          area: ep ? catalogEndpoint(ep).area : 'unknown',
+          area: areaOf(group.failures[0]),
           tests: keys,
+          endpoints,
           approvedBy: who,
           approvedOn: new Date().toISOString().slice(0, 10),
         };
@@ -175,6 +185,28 @@ async function review(): Promise<void> {
     appendFileSync(DECISIONS, `${JSON.stringify(decision)}\n`);
   }
   rl.close();
+}
+
+/**
+ * Offers the approved bugs this group most likely duplicates, with the reason for each, so the
+ * reviewer picks a number instead of recalling an id. Enter files a new bug; typing an id still works.
+ */
+async function pickExisting(rl: ReturnType<typeof createInterface>, group: FailureGroup, title: string, bugs: KnownBug[]): Promise<KnownBug | undefined> {
+  const candidates = findCandidates(group, title, bugs);
+  if (candidates.length) {
+    console.log('  possibly the same defect as an open bug:');
+    candidates.forEach((c, n) => console.log(`    ${n + 1}  ${c.bug.id}  ${c.bug.title}\n         ${c.reasons.join(' · ')}`));
+  } else if (bugs.length) {
+    console.log(`  no open bug looks like this one (${bugs.length} checked by endpoint and title)`);
+  }
+  for (;;) {
+    const prompt = candidates.length ? `  same as [${candidates.length === 1 ? '1' : `1-${candidates.length}`}], or Enter for a new bug: ` : '  Enter for a new bug, or a bug id to add it to: ';
+    const raw = (await rl.question(prompt)).trim();
+    if (!raw) return undefined;
+    const picked = candidates[Number(raw) - 1]?.bug ?? bugs.find((b) => b.id.toLowerCase() === raw.toLowerCase());
+    if (picked) return picked;
+    console.log('  not one of the options; try again');
+  }
 }
 
 const SEVERITIES: readonly KnownBug['severity'][] = ['critical', 'high', 'medium', 'low'];

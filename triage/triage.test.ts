@@ -5,6 +5,8 @@ import { redact } from './redact';
 import { classify } from './heuristic';
 import { validate } from './model';
 import { groupFailures, signature } from './collect';
+import { findCandidates, resource, titleSimilarity } from './duplicates';
+import type { KnownBug } from '../src/known-bugs';
 import type { Failure, FailureGroup } from './types';
 
 const failure = (over: Partial<Failure> = {}): Failure => ({
@@ -124,4 +126,100 @@ test('a server error is titled as a failure, not as access granted', () => {
 test('a behavior bug title states the requirement from the test title', () => {
   const f = failure({ key: 'api/checkout.spec.ts › R2 checkout › refuses to check out an empty basket', error: 'Expected: 400\nReceived: 200' });
   assert.equal(classify(group(f)).suggestedTitle, 'Not met: R2 checkout › refuses to check out an empty basket');
+});
+
+const MATRIX_KEY = 'api/access-matrix.spec.ts › R1 Customer data isolation › GET /rest/basket/:id › refuses customer';
+const bug = (over: Partial<KnownBug> = {}): KnownBug => ({
+  id: 'BUG-001',
+  title: 'Any signed-in user can read any basket by id',
+  severity: 'critical',
+  area: 'R1',
+  tests: [MATRIX_KEY],
+  endpoints: ['basket.get'],
+  approvedBy: 'Reviewer',
+  approvedOn: '2026-11-17',
+  ...over,
+});
+const isolation = (over: Partial<Failure> = {}) => failure({ file: 'api/isolation.spec.ts', ...over });
+
+test('an open access bug on the same endpoint is suggested for a new access failure, with the reason', () => {
+  // Arrange: an isolation failure on the endpoint a role-matrix bug was filed on
+  const g = group(isolation({ endpoint: 'basket.get' }));
+
+  // Act
+  const [first] = findCandidates(g, 'Not met: R1 isolation › GET /rest/basket/:id on another customer\'s record', [bug()]);
+
+  // Assert
+  assert.equal(first.bug.id, 'BUG-001');
+  assert.match(first.reasons[0], /same endpoint, both access checks: GET \/rest\/basket\/:id/);
+});
+
+test('two behavior rules on one endpoint are not suggested as the same defect', () => {
+  // Arrange: "no address" and "empty basket" both fail on checkout, but are separate rules
+  const empty = bug({ title: 'Not met: R2 checkout › refuses to check out an empty basket', tests: ['api/checkout.spec.ts › R2 checkout › refuses to check out an empty basket'], endpoints: ['basket.checkout'] });
+  const g = group(failure({ file: 'api/checkout.spec.ts', endpoint: 'basket.checkout' }));
+
+  // Act
+  const found = findCandidates(g, 'Not met: R2 checkout › refuses an order without a delivery address and payment method', [empty]);
+
+  // Assert
+  assert.equal(found.length, 0);
+});
+
+test('one shared word is not a similar title', () => {
+  assert.equal(titleSimilarity('reads another basket', 'basket quantity of zero'), 0);
+});
+
+test('access failures on the same record type are suggested', () => {
+  const g = group(isolation({ endpoint: 'basket.coupon' }));
+  const [first] = findCandidates(g, 'Not met: coupon applied to someone else', [bug()]);
+  assert.match(first.reasons[0], /same records, both access checks: \/rest\/basket/);
+});
+
+test('behavior failures on the same record type are not suggested', () => {
+  const g = group(failure({ file: 'api/checkout.spec.ts', endpoint: 'basket.coupon' }));
+  assert.equal(findCandidates(g, 'Not met: coupon applied to someone else', [bug()]).length, 0);
+});
+
+test('the same rule on another endpoint is suggested by title', () => {
+  // Arrange: quantity 0 was filed on update; quantity -1 fails on create
+  const zero = bug({ title: 'Not met: R1 basket › rejects a quantity of 0', tests: ['api/customer-data.spec.ts › R1 basket › rejects a quantity of 0'], endpoints: ['basketItems.update'] });
+  const g = group(failure({ file: 'api/customer-data.spec.ts', endpoint: 'basketItems.create' }));
+
+  // Act
+  const found = findCandidates(g, 'Not met: R1 basket › rejects a negative basket quantity', [zero]);
+
+  // Assert
+  assert.equal(found.length, 1);
+  assert.match(found[0].reasons[0], /similar title/);
+});
+
+test('an unrelated bug is not suggested', () => {
+  const g = group(failure({ endpoint: 'auth.login' }));
+  assert.equal(findCandidates(g, 'Not met: login refuses SQL injection', [bug()]).length, 0);
+});
+
+test('a bug filed without endpoints can still match by title', () => {
+  const g = group(isolation({ endpoint: 'basket.get' }));
+  const found = findCandidates(g, 'Signed-in users read any basket by id', [bug({ endpoints: undefined })]);
+  assert.equal(found.length, 1);
+});
+
+test('at most three suggestions, strongest first', () => {
+  // Arrange: four bugs on the same endpoint, one also with a similar title
+  const bugs = ['BUG-001', 'BUG-002', 'BUG-003', 'BUG-004'].map((id, n) => bug({ id, title: n === 3 ? 'Users read any basket' : `unrelated ${id}` }));
+
+  // Act
+  const found = findCandidates(group(isolation({ endpoint: 'basket.get' })), 'Users can read any basket by id', bugs);
+
+  // Assert
+  assert.equal(found.length, 3);
+  assert.equal(found[0].bug.id, 'BUG-004');
+  assert.ok(found.every((c, i) => i === 0 || c.score <= found[i - 1].score));
+});
+
+test('a record type stops at the first id, or is the whole path without one', () => {
+  assert.equal(resource('/rest/basket/:id/checkout'), '/rest/basket');
+  assert.equal(resource('/api/BasketItems'), '/api/basketitems');
+  assert.notEqual(resource('/rest/user/change-password'), resource('/rest/user/authentication-details'));
 });

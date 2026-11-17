@@ -15,6 +15,8 @@ export interface KnownBug {
   area: string;
   /** Test keys (see testKey). A trailing `*` matches every test that starts with the prefix. */
   tests: string[];
+  /** Catalog endpoint ids the bug was seen on; review uses them to suggest duplicates. */
+  endpoints?: string[];
   approvedBy: string;
   approvedOn: string;
 }
