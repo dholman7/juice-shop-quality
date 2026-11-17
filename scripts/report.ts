@@ -169,7 +169,7 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
   const bugRows = bugs.map((b) => {
     const failing = rows.filter((r) => r.knownBug?.startsWith(`${b.id}:`) && r.result === 'known-bug').length;
     const fixed = rows.filter((r) => r.knownBug?.startsWith(`${b.id}:`) && r.result === 'fixed').length;
-    return `<tr><td>${b.id}</td><td><span class="pill sev-${b.severity}">${b.severity}</span></td><td>${b.area}</td><td>${esc(b.title)}</td><td class="num">${failing}${fixed ? ` <span class="pill fixed">${fixed} now pass</span>` : ''}</td><td>${esc(b.approvedBy)} · ${b.approvedOn}${b.rerated?.length ? ((r) => `<br><span class="legend">re-rated ${r.from} → ${r.to} by ${esc(r.by)} · ${r.on}: ${esc(r.reason)}</span>`)(b.rerated[b.rerated.length - 1]) : ''}</td></tr>`;
+    return `<tr><td>${b.id}<br><span class="legend">${esc(b.jira)}</span></td><td><span class="pill sev-${b.severity}">${b.severity}</span></td><td>${b.area}</td><td>${esc(b.title)}</td><td class="num">${failing}${fixed ? ` <span class="pill fixed">${fixed} now pass</span>` : ''}</td><td>${esc(b.approvedBy)} · ${b.approvedOn}${b.rerated?.length ? ((r) => `<br><span class="legend">re-rated ${r.from} → ${r.to} by ${esc(r.by)} · ${r.on}: ${esc(r.reason)}</span>`)(b.rerated[b.rerated.length - 1]) : ''}</td></tr>`;
   });
 
   return `<!doctype html>

@@ -55,6 +55,12 @@ export function titleSimilarity(a: string, b: string): number {
   return shared < 2 ? 0 : shared / (x.size + y.size - shared);
 }
 
+/** Open bugs whose title or Jira key contains every word typed, case-insensitive: the fallback when no suggestion fits. */
+export function searchBugs(query: string, bugs: KnownBug[]): KnownBug[] {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return bugs.filter((b) => terms.every((t) => `${b.jira} ${b.title}`.toLowerCase().includes(t)));
+}
+
 /** Up to three approved bugs this group may belong to, best first, each with its reasons. */
 export function findCandidates(group: FailureGroup, title: string, bugs: KnownBug[]): Candidate[] {
   const ids = [...new Set(group.failures.map((f) => f.endpoint).filter((e): e is string => Boolean(e)))];

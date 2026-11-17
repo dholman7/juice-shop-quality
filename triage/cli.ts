@@ -11,12 +11,12 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
-import { KNOWN_BUGS_PATH, loadKnownBugs, rerate, type KnownBug } from '../src/known-bugs';
+import { KNOWN_BUGS_PATH, findBug, jiraKey, loadKnownBugs, rerate, type KnownBug } from '../src/known-bugs';
 import { endpoint as catalogEndpoint } from '../src/catalog';
 import { collectFailures, groupFailures } from './collect';
 import { classify } from './heuristic';
 import { classifyWithModel } from './model';
-import { findCandidates } from './duplicates';
+import { findCandidates, searchBugs } from './duplicates';
 import { CATEGORIES, type Category, type Decision, type FailureGroup, type Proposal } from './types';
 
 // Proposals are per run (regenerated, not committed); decisions are the committed audit trail.
@@ -156,18 +156,23 @@ async function review(): Promise<void> {
     // Several groups can be one defect, so the reviewer may add them to an existing bug.
     if (decision.verdict !== 'rejected' && category === 'product-bug') {
       const bugs = loadKnownBugs();
-      const bug = await pickExisting(rl, group, p.suggestedTitle ?? group.failures[0].title, bugs);
+      const picked = await pickExisting(rl, group, p.suggestedTitle ?? group.failures[0].title, bugs);
+      // A new bug is reported first: its Jira key comes before the title. A key already on file means the same bug.
+      const jira = picked ? undefined : await askJira(rl);
+      const bug = picked ?? (jira ? findBug(bugs, jira) : undefined);
+      if (bug && !picked) console.log(`  ${jira} is ${bug.id}; adding this group to it`);
       const keys = group.failures.map((f) => f.key);
       const endpoints = [...new Set(group.failures.map((f) => f.endpoint).filter((e): e is string => Boolean(e)))];
       if (bug) {
         bug.tests = [...new Set([...bug.tests, ...keys])];
         bug.endpoints = [...new Set([...(bug.endpoints ?? []), ...endpoints])];
         decision.bugId = bug.id;
-      } else {
+      } else if (jira) {
         const title = (await rl.question(`  bug title [${p.suggestedTitle ?? group.failures[0].title}]: `)).trim() || p.suggestedTitle || group.failures[0].title;
         const severity = await askSeverity(rl, p.suggestedSeverity ?? 'medium');
         const created: KnownBug = {
           id: nextBugId(bugs),
+          jira,
           title,
           severity,
           area: areaOf(group.failures[0]),
@@ -190,23 +195,40 @@ async function review(): Promise<void> {
 
 /**
  * Offers the approved bugs this group most likely duplicates, with the reason for each, so the
- * reviewer picks a number instead of recalling an id. Enter files a new bug; typing an id still works.
+ * reviewer picks a number instead of recalling an id. Any other word searches open bug titles.
+ * Enter files a new bug; typing an id still works.
  */
 async function pickExisting(rl: ReturnType<typeof createInterface>, group: FailureGroup, title: string, bugs: KnownBug[]): Promise<KnownBug | undefined> {
   const candidates = findCandidates(group, title, bugs);
+  let choices = candidates.map((c) => c.bug);
   if (candidates.length) {
     console.log('  possibly the same defect as an open bug:');
-    candidates.forEach((c, n) => console.log(`    ${n + 1}  ${c.bug.id}  ${c.bug.title}\n         ${c.reasons.join(' · ')}`));
+    candidates.forEach((c, n) => console.log(`    ${n + 1}  ${c.bug.id}  ${c.bug.jira}  ${c.bug.title}\n         ${c.reasons.join(' · ')}`));
   } else if (bugs.length) {
     console.log(`  no open bug looks like this one (${bugs.length} checked by endpoint and title)`);
   }
   for (;;) {
-    const prompt = candidates.length ? `  same as [${candidates.length === 1 ? '1' : `1-${candidates.length}`}], or Enter for a new bug: ` : '  Enter for a new bug, or a bug id to add it to: ';
-    const raw = (await rl.question(prompt)).trim();
+    const pick = choices.length ? `[${choices.length === 1 ? '1' : `1-${choices.length}`}], ` : '';
+    const raw = (await rl.question(`  add to ${pick}a bug id or Jira key, or a word to search titles; Enter for a new bug: `)).trim();
     if (!raw) return undefined;
-    const picked = candidates[Number(raw) - 1]?.bug ?? bugs.find((b) => b.id.toLowerCase() === raw.toLowerCase());
+    const picked = (/^\d+$/.test(raw) ? choices[Number(raw) - 1] : undefined) ?? findBug(bugs, raw);
     if (picked) return picked;
-    console.log('  not one of the options; try again');
+    const found = searchBugs(raw, bugs);
+    if (!found.length) {
+      console.log(`  no open bug title contains "${raw}"`);
+      continue;
+    }
+    choices = found;
+    found.forEach((b, n) => console.log(`    ${n + 1}  ${b.id}  ${b.jira}  ${b.title}`));
+  }
+}
+
+/** The Jira ticket a new bug is reported in. Required: every approved bug has a ticket. */
+async function askJira(rl: ReturnType<typeof createInterface>): Promise<string> {
+  for (;;) {
+    const key = jiraKey(await rl.question('  Jira key it is reported in (e.g. SHOP-240): '));
+    if (key) return key;
+    console.log('  not a Jira key; expected PROJECT-123');
   }
 }
 
@@ -234,17 +256,17 @@ async function askSeverity(rl: ReturnType<typeof createInterface>, suggested: Kn
 async function rate(): Promise<void> {
   const who = reviewer();
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  console.log(`Re-rating open bugs as ${who}. Enter a bug id, or Enter alone to finish.`);
+  console.log(`Re-rating open bugs as ${who}. Enter a bug id or Jira key, or Enter alone to finish.`);
   for (;;) {
     const bugs = loadKnownBugs();
-    const id = (await rl.question('\n  bug id: ')).trim();
+    const id = (await rl.question('\n  bug id or Jira key: ')).trim();
     if (!id) break;
-    const bug = bugs.find((b) => b.id.toLowerCase() === id.toLowerCase());
+    const bug = findBug(bugs, id);
     if (!bug) {
       console.log(`  no open bug ${id}`);
       continue;
     }
-    console.log(`  ${bug.id} [${bug.severity}, ${bug.area}] ${bug.title}`);
+    console.log(`  ${bug.id} (${bug.jira}) [${bug.severity}, ${bug.area}] ${bug.title}`);
     const to = await askSeverity(rl, bug.severity);
     if (to === bug.severity) {
       console.log('  unchanged');

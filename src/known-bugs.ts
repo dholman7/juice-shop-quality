@@ -10,6 +10,8 @@ import type { TestInfo } from '@playwright/test';
 /** One approved bug. Only the review CLI writes these, with the reviewer's name and date. */
 export interface KnownBug {
   id: string;
+  /** The tracker ticket the bug is reported in, e.g. SHOP-214. */
+  jira: string;
   title: string;
   severity: 'critical' | 'high' | 'medium' | 'low';
   area: string;
@@ -24,6 +26,18 @@ export interface KnownBug {
 }
 
 export type Severity = KnownBug['severity'];
+
+/** A Jira key in upper case (`shop-12` → `SHOP-12`), or undefined if it isn't one. */
+export function jiraKey(raw: string): string | undefined {
+  const key = raw.trim().toUpperCase();
+  return /^[A-Z][A-Z0-9]+-[1-9]\d*$/.test(key) ? key : undefined;
+}
+
+/** The bug with this id or Jira key, any case. */
+export function findBug(bugs: KnownBug[], idOrKey: string): KnownBug | undefined {
+  const q = idOrKey.trim().toLowerCase();
+  return bugs.find((b) => b.id.toLowerCase() === q || b.jira.toLowerCase() === q);
+}
 
 export interface Rerating {
   from: Severity;

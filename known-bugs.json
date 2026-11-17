@@ -2,6 +2,7 @@
   "bugs": [
     {
       "id": "BUG-001",
+      "jira": "SHOP-214",
       "title": "Any signed-in user can list, read, change, and delete other customers' basket items",
       "severity": "critical",
       "area": "R1",
@@ -33,6 +34,7 @@
     },
     {
       "id": "BUG-002",
+      "jira": "SHOP-215",
       "title": "Some calls without a session fail with 500 instead of 401",
       "severity": "low",
       "area": "R1",
@@ -50,6 +52,7 @@
     },
     {
       "id": "BUG-003",
+      "jira": "SHOP-216",
       "title": "Any signed-in user can read any user record, the full user list, and login details",
       "severity": "high",
       "area": "R1",
@@ -74,6 +77,7 @@
     },
     {
       "id": "BUG-004",
+      "jira": "SHOP-217",
       "title": "Non-admins can create products",
       "severity": "high",
       "area": "R2",
@@ -90,6 +94,7 @@
     },
     {
       "id": "BUG-005",
+      "jira": "SHOP-218",
       "title": "Anyone, even signed out, can change a product's price",
       "severity": "critical",
       "area": "R2",
@@ -107,6 +112,7 @@
     },
     {
       "id": "BUG-006",
+      "jira": "SHOP-219",
       "title": "Sign-up accepts role: admin",
       "severity": "critical",
       "area": "R3",
@@ -121,6 +127,7 @@
     },
     {
       "id": "BUG-007",
+      "jira": "SHOP-220",
       "title": "Sign-up accepts mismatched passwords",
       "severity": "low",
       "area": "R3",
@@ -135,6 +142,7 @@
     },
     {
       "id": "BUG-008",
+      "jira": "SHOP-221",
       "title": "The password hash is in the session token and in API responses",
       "severity": "high",
       "area": "R3",
@@ -153,6 +161,7 @@
     },
     {
       "id": "BUG-009",
+      "jira": "SHOP-222",
       "title": "SQL injection in the login email signs in as admin",
       "severity": "critical",
       "area": "R3",
@@ -167,6 +176,7 @@
     },
     {
       "id": "BUG-010",
+      "jira": "SHOP-223",
       "title": "No rate limit on wrong passwords",
       "severity": "medium",
       "area": "R3",
@@ -181,6 +191,7 @@
     },
     {
       "id": "BUG-011",
+      "jira": "SHOP-224",
       "title": "Unsigned session tokens (alg: none) are accepted",
       "severity": "critical",
       "area": "R3",
@@ -195,6 +206,7 @@
     },
     {
       "id": "BUG-012",
+      "jira": "SHOP-225",
       "title": "Passkey sign-in ignores the signature",
       "severity": "critical",
       "area": "R3",
@@ -209,6 +221,7 @@
     },
     {
       "id": "BUG-013",
+      "jira": "SHOP-226",
       "title": "Registering another account's passkey credential id takes it over",
       "severity": "critical",
       "area": "R3",
@@ -223,6 +236,7 @@
     },
     {
       "id": "BUG-014",
+      "jira": "SHOP-227",
       "title": "Changing the password does not require the current one",
       "severity": "high",
       "area": "R3",
@@ -237,6 +251,7 @@
     },
     {
       "id": "BUG-015",
+      "jira": "SHOP-228",
       "title": "Checkout accepts an empty basket and orders with no address or payment",
       "severity": "high",
       "area": "R2",
@@ -252,6 +267,7 @@
     },
     {
       "id": "BUG-016",
+      "jira": "SHOP-229",
       "title": "Zero and negative quantities are accepted, producing negative order totals",
       "severity": "high",
       "area": "R2",
@@ -269,6 +285,7 @@
     },
     {
       "id": "BUG-017",
+      "jira": "SHOP-230",
       "title": "Negative wallet top-ups are accepted",
       "severity": "high",
       "area": "R2",
@@ -283,6 +300,7 @@
     },
     {
       "id": "BUG-018",
+      "jira": "SHOP-231",
       "title": "Deluxe membership is granted without payment",
       "severity": "high",
       "area": "R2",
@@ -297,6 +315,7 @@
     },
     {
       "id": "BUG-019",
+      "jira": "SHOP-232",
       "title": "The token issued at deluxe upgrade cannot use the basket until the customer logs in again",
       "severity": "medium",
       "area": "R2",
@@ -311,6 +330,7 @@
     },
     {
       "id": "BUG-020",
+      "jira": "SHOP-233",
       "title": "An address with no name is accepted",
       "severity": "low",
       "area": "R1",
@@ -325,6 +345,7 @@
     },
     {
       "id": "BUG-021",
+      "jira": "SHOP-234",
       "title": "Saving a card echoes the full card number",
       "severity": "high",
       "area": "R1",
@@ -339,6 +360,7 @@
     },
     {
       "id": "BUG-022",
+      "jira": "SHOP-235",
       "title": "The data export CAPTCHA returns its own answer and can be skipped",
       "severity": "medium",
       "area": "R1",
@@ -355,6 +377,7 @@
     },
     {
       "id": "BUG-023",
+      "jira": "SHOP-236",
       "title": "Any signed-in user can read any customer's basket by id",
       "severity": "critical",
       "area": "R1",
@@ -372,6 +395,7 @@
     },
     {
       "id": "BUG-024",
+      "jira": "SHOP-237",
       "title": "Updating another customer's address succeeds and moves it to the caller's account",
       "severity": "critical",
       "area": "R1",
@@ -389,6 +413,7 @@
     },
     {
       "id": "BUG-025",
+      "jira": "SHOP-238",
       "title": "Any signed-in user can apply a coupon to, or check out, another customer's basket",
       "severity": "critical",
       "area": "R2",
@@ -411,6 +436,7 @@
     },
     {
       "id": "BUG-026",
+      "jira": "SHOP-239",
       "title": "Sending BasketId twice adds items to another customer's basket",
       "severity": "critical",
       "area": "R1",

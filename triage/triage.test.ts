@@ -5,8 +5,8 @@ import { redact } from './redact';
 import { classify } from './heuristic';
 import { validate } from './model';
 import { groupFailures, signature } from './collect';
-import { findCandidates, resource, titleSimilarity } from './duplicates';
-import { rerate, type KnownBug } from '../src/known-bugs';
+import { findCandidates, resource, searchBugs, titleSimilarity } from './duplicates';
+import { findBug, jiraKey, loadKnownBugs, rerate, type KnownBug } from '../src/known-bugs';
 import type { Failure, FailureGroup } from './types';
 
 const failure = (over: Partial<Failure> = {}): Failure => ({
@@ -131,6 +131,7 @@ test('a behavior bug title states the requirement from the test title', () => {
 const MATRIX_KEY = 'api/access-matrix.spec.ts › R1 Customer data isolation › GET /rest/basket/:id › refuses customer';
 const bug = (over: Partial<KnownBug> = {}): KnownBug => ({
   id: 'BUG-001',
+  jira: 'SHOP-214',
   title: 'Any signed-in user can read any basket by id',
   severity: 'critical',
   area: 'R1',
@@ -241,4 +242,60 @@ test('a second re-rating keeps the first in the history', () => {
 test('re-rating refuses no change and a blank reason', () => {
   assert.throws(() => rerate(bug({ severity: 'high' }), 'high', 'same', 'A', 'd'), /already high/);
   assert.throws(() => rerate(bug({ severity: 'high' }), 'low', '   ', 'A', 'd'), /needs a reason/);
+});
+
+test('title search finds open bugs containing every word typed, in any case', () => {
+  // Arrange
+  const bugs = [
+    bug({ id: 'BUG-008', title: 'The password hash is in the session token and in API responses' }),
+    bug({ id: 'BUG-009', title: 'Password change does not check the current password' }),
+  ];
+
+  // Act
+  const byOne = searchBugs('HASH', bugs).map((b) => b.id);
+  const byTwo = searchBugs('password  current', bugs).map((b) => b.id);
+  const byNone = searchBugs('coupon', bugs);
+
+  // Assert
+  assert.deepEqual(byOne, ['BUG-008']);
+  assert.deepEqual(byTwo, ['BUG-009']);
+  assert.deepEqual(byNone, []);
+});
+
+test('a Jira key is read in upper case; anything else is refused', () => {
+  // Arrange
+  const valid = { 'SHOP-240': 'SHOP-240', 'shop-12': 'SHOP-12', '  QA2-7 ': 'QA2-7' };
+  const invalid = ['', '   ', 'SHOP', 'SHOP-', 'SHOP-0', '240', 'S-1', 'SHOP 240', 'SHOP-12a', 'BUG_008'];
+
+  // Act / Assert
+  for (const [raw, key] of Object.entries(valid)) assert.equal(jiraKey(raw), key, raw);
+  for (const raw of invalid) assert.equal(jiraKey(raw), undefined, raw);
+});
+
+test('a bug is found by its id or its Jira key, in any case', () => {
+  // Arrange
+  const bugs = [bug({ id: 'BUG-008', jira: 'SHOP-221' }), bug({ id: 'BUG-009', jira: 'SHOP-222' })];
+
+  // Act / Assert
+  assert.equal(findBug(bugs, 'bug-008')?.id, 'BUG-008');
+  assert.equal(findBug(bugs, ' shop-222 ')?.id, 'BUG-009');
+  assert.equal(findBug(bugs, 'SHOP-999'), undefined);
+  assert.equal(findBug(bugs, ''), undefined);
+});
+
+test('title search also matches the Jira key', () => {
+  const bugs = [bug({ id: 'BUG-008', jira: 'SHOP-221' }), bug({ id: 'BUG-009', jira: 'SHOP-222' })];
+  assert.deepEqual(searchBugs('shop-221', bugs).map((b) => b.id), ['BUG-008']);
+});
+
+test('every approved bug has its own valid Jira key', () => {
+  // Arrange
+  const bugs = loadKnownBugs();
+
+  // Act
+  const keys = bugs.map((b) => b.jira);
+
+  // Assert
+  for (const b of bugs) assert.ok(typeof b.jira === 'string' && jiraKey(b.jira) === b.jira, `${b.id} has no valid Jira key`);
+  assert.equal(new Set(keys).size, keys.length, 'two bugs share a Jira key');
 });
