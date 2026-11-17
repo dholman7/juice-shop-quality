@@ -92,13 +92,19 @@ test('admin sees registered customers on the administration page', covers('users
   const admin = await as('admin');
   await signIn(page, admin.account!);
 
+  // The table is built from this response: wait for the data, not just the heading.
+  const users = page.waitForResponse((r) => r.url().includes('/rest/user/authentication-details') && r.ok());
+
   // Act
   await page.goto('/#/administration');
+  await users;
 
   // Assert
   await expect(page.getByRole('heading', { name: 'Administration' })).toBeVisible();
   // jim@juice-sh.op is a seeded customer, so seeing it proves the page lists other customers.
-  await expect(page.getByText('jim@juice-sh.op').first()).toBeVisible();
+  // The page renders every account in the browser: late in a full CI run that is several hundred
+  // (a 208 KB response), and the first CI flake showed the rows appearing after the 5 s default.
+  await expect(page.getByText('jim@juice-sh.op').first()).toBeVisible({ timeout: 15_000 });
 });
 
 // The screen check only; the API refusal for the same data is in access-matrix.spec.ts.
