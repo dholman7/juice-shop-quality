@@ -4,14 +4,14 @@
  */
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { KNOWN_BUGS_PATH, findBug, isScore, jiraKey, severityFor, type KnownBug } from '../src/known-bugs';
+import { findBug, isScore, jiraKey, severityFor, type KnownBug } from '../src/known-bugs';
 import { endpoint as catalogEndpoint } from '../src/catalog';
 import type { Category, Decision, FailureGroup, Proposal } from './types';
+import { statePath } from '../src/review-state';
 
 export const OUT = 'reports/triage';
 export const PROPOSALS = `${OUT}/proposals.json`;
-// Proposals are per run (regenerated, not committed); decisions are the committed audit trail.
-export const DECISIONS = 'triage/decisions.jsonl';
+// Proposals are per run (regenerated, not committed); decisions (triage/decisions.jsonl) are the committed audit trail.
 
 /** One triage pass: which provider ran, the groups, and one proposal per group. */
 export interface TriageRun {
@@ -48,11 +48,11 @@ export function reviewer(): string {
 export const today = (): string => new Date().toISOString().slice(0, 10);
 
 export function saveBugs(bugs: KnownBug[]): void {
-  writeFileSync(KNOWN_BUGS_PATH, `${JSON.stringify({ bugs }, null, 2)}\n`);
+  writeFileSync(statePath('knownBugs'), `${JSON.stringify({ bugs }, null, 2)}\n`);
 }
 
 export function appendDecision(decision: Decision): void {
-  appendFileSync(DECISIONS, `${JSON.stringify(decision)}\n`);
+  appendFileSync(statePath('decisions'), `${JSON.stringify(decision)}\n`);
 }
 
 export function loadRun(): TriageRun {
@@ -62,8 +62,9 @@ export function loadRun(): TriageRun {
 
 /** Proposals with no decision yet. Groups decided on an earlier run are skipped, so only new defects come back. */
 export function pendingProposals(run: TriageRun): Proposal[] {
+  const decisions = statePath('decisions');
   const decided = new Set(
-    existsSync(DECISIONS) ? readFileSync(DECISIONS, 'utf8').trim().split('\n').filter(Boolean).map((l) => (JSON.parse(l) as Decision).groupId) : [],
+    existsSync(decisions) ? readFileSync(decisions, 'utf8').trim().split('\n').filter(Boolean).map((l) => (JSON.parse(l) as Decision).groupId) : [],
   );
   return run.proposals.filter((p) => !decided.has(p.groupId));
 }

@@ -2,6 +2,7 @@
  * One summary per run, kept across runs, for the report's Progress section.
  * CI downloads the published history before the run and publishes it again after, so the trend survives.
  */
+import { statePath } from '../src/review-state';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { ENDPOINTS } from '../src/catalog';
@@ -69,8 +70,8 @@ export function summarize(): RunSummary {
   const bugsBySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const b of loadKnownBugs()) bugsBySeverity[b.severity]++;
 
-  const decisions: Decision[] = existsSync('triage/decisions.jsonl')
-    ? readFileSync('triage/decisions.jsonl', 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  const decisions: Decision[] = existsSync(statePath('decisions'))
+    ? readFileSync(statePath('decisions'), 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
     : [];
 
   return {

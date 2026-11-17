@@ -8,10 +8,10 @@
  * Medium and high findings fail the run until a person decides on them in security/zap-findings.json,
  * the same gate as known-bugs.json. Low and informational findings are reported, never fail.
  */
+import { statePath } from '../src/review-state';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { NAME as APP_CONTAINER } from '../scripts/juice-shop';
 
@@ -22,7 +22,6 @@ export const ZAP_IMAGE =
 export const OUT = 'reports/zap';
 const REPORT_JSON = `${OUT}/zap.json`;
 export const SUMMARY = `${OUT}/summary.json`;
-export const DECISIONS_PATH = fileURLToPath(new URL('./zap-findings.json', import.meta.url));
 
 export type Risk = 'high' | 'medium' | 'low' | 'informational';
 const RISKS: Risk[] = ['informational', 'low', 'medium', 'high'];
@@ -90,7 +89,7 @@ export function readFindings(path = REPORT_JSON): { version: string; findings: F
   return { version: report['@version'], findings };
 }
 
-export function loadDecisions(path = DECISIONS_PATH): FindingDecision[] {
+export function loadDecisions(path = statePath('zapFindings')): FindingDecision[] {
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')).findings as FindingDecision[]) : [];
 }
 
@@ -169,7 +168,7 @@ export function undecided(summary: ZapSummary, decisions = loadDecisions()): Fin
 export function recordDecision(f: Finding, verdict: FindingDecision['verdict'], reason: string, who: string, on: string): FindingDecision {
   if (verdict === 'dismissed' && !reason.trim()) throw new Error('a dismissal needs a reason');
   const decision: FindingDecision = { ref: f.ref, name: f.name, risk: f.risk, verdict, reason: reason.trim(), decidedBy: who, decidedOn: on };
-  writeFileSync(DECISIONS_PATH, `${JSON.stringify({ findings: [...loadDecisions(), decision] }, null, 2)}\n`);
+  writeFileSync(statePath('zapFindings'), `${JSON.stringify({ findings: [...loadDecisions(), decision] }, null, 2)}\n`);
   return decision;
 }
 

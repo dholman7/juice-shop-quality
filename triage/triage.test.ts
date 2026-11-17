@@ -7,6 +7,8 @@ import { validate } from './model';
 import { groupFailures, signature } from './collect';
 import { findCandidates, resource, searchBugs, titleSimilarity } from './duplicates';
 import { fileBug } from './review-core';
+import { readFileSync } from 'node:fs';
+import { resetDemo, statePath } from '../src/review-state';
 import { findBug, isScore, jiraKey, loadKnownBugs, rescore, severityFor, severityMismatches, type KnownBug } from '../src/known-bugs';
 import type { Failure, FailureGroup } from './types';
 
@@ -411,4 +413,31 @@ test('filing refuses an unknown bug, a bad Jira key, a blank title, and bad scor
   for (const [impact, likelihood] of [[0, 3], [3, 6], [2.5, 3], [Number.NaN, 3]]) {
     assert.throws(() => fileBug(bugs, g, { ...newBug, impact, likelihood }, 'A', 'd'), /1 to 5/, `${impact}, ${likelihood}`);
   }
+});
+
+test('review state is the committed files, or empty copies in .demo/ with DEMO=1', () => {
+  // Arrange
+  const before = process.env.DEMO;
+  const committedBugs = loadKnownBugs().length;
+  try {
+    // Act
+    delete process.env.DEMO;
+    const committed = statePath('knownBugs');
+    process.env.DEMO = '1';
+    resetDemo();
+    const demo = { bugs: statePath('knownBugs'), decisions: statePath('decisions'), zap: statePath('zapFindings') };
+
+    // Assert
+    assert.match(committed, /\/known-bugs\.json$/);
+    assert.doesNotMatch(committed, /\.demo/);
+    assert.match(demo.bugs, /\/\.demo\/known-bugs\.json$/);
+    assert.deepEqual(loadKnownBugs(), [], 'demo starts with no bugs');
+    assert.equal(readFileSync(demo.decisions, 'utf8'), '');
+    assert.deepEqual(JSON.parse(readFileSync(demo.zap, 'utf8')), { findings: [] });
+  } finally {
+    resetDemo();
+    if (before === undefined) delete process.env.DEMO;
+    else process.env.DEMO = before;
+  }
+  assert.equal(loadKnownBugs().length, committedBugs, 'the committed registry is untouched');
 });

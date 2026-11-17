@@ -4,7 +4,7 @@
  * that looks fixed, while the bug stays visible in the report.
  */
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { statePath } from './review-state';
 import type { TestInfo } from '@playwright/test';
 
 /** One approved bug. Only the reviews (page or terminal) write these, with the reviewer's name and date. */
@@ -82,9 +82,7 @@ export function rescore(bug: KnownBug, impact: number, likelihood: number, reaso
   return { ...bug, impact, likelihood, severity: to, rerated: [...(bug.rerated ?? []), change] };
 }
 
-export const KNOWN_BUGS_PATH = fileURLToPath(new URL('../known-bugs.json', import.meta.url));
-
-export function loadKnownBugs(path = KNOWN_BUGS_PATH): KnownBug[] {
+export function loadKnownBugs(path = statePath('knownBugs')): KnownBug[] {
   return JSON.parse(readFileSync(path, 'utf8')).bugs as KnownBug[];
 }
 

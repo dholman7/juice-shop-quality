@@ -2,6 +2,7 @@
  * Builds reports/index.html: one page a tester or manager can read without the terminal.
  * Inputs: the Playwright JSON report, the triage proposals, decisions, known-bugs.json, and the ZAP scan summary.
  */
+import { isDemo, statePath } from '../src/review-state';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { AREAS, ENDPOINTS, allows, type Area } from '../src/catalog';
 import { ROLES } from '../src/config';
@@ -115,8 +116,8 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
     ? JSON.parse(readFileSync('reports/triage/proposals.json', 'utf8'))
     : undefined;
   const decided = new Set(
-    existsSync('triage/decisions.jsonl')
-      ? readFileSync('triage/decisions.jsonl', 'utf8').trim().split('\n').filter(Boolean).map((l) => (JSON.parse(l) as Decision).groupId)
+    existsSync(statePath('decisions'))
+      ? readFileSync(statePath('decisions'), 'utf8').trim().split('\n').filter(Boolean).map((l) => (JSON.parse(l) as Decision).groupId)
       : [],
   );
   const pending = triage?.proposals.filter((p) => !decided.has(p.groupId)) ?? [];
@@ -176,7 +177,7 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Juice Shop test run</title>
+<title>Juice Shop Dashboard</title>
 <style>
 :root{--ink:#1d2430;--muted:#5d6878;--line:#dde3ea;--bg:#f6f8fa;--card:#fff;--ok:#1f7a4d;--bad:#b42318;--warn:#9a6700;--accent:#2f5d8a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
@@ -195,9 +196,10 @@ th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;verti
 .pill.fixed,.pill.st-ok{background:#e6f4ec;color:var(--ok)}.pill.st-warn{background:#fdf1d8;color:var(--warn)}.pill.st-muted{color:var(--muted)}
 .cell[data-tip]{cursor:help}.cell:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 #tip{position:fixed;z-index:10;max-width:min(380px,calc(100vw - 16px));white-space:pre-line;background:var(--ink);color:#fff;font-size:12.5px;line-height:1.45;padding:8px 10px;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:none}
-.trend{color:var(--accent);width:140px}.spark{display:block}tbody th{font-weight:600}.legend{color:var(--muted);font-size:13px}a{color:var(--accent)}
+.trend{color:var(--accent);width:140px}.spark{display:block}tbody th{font-weight:600}.legend{color:var(--muted);font-size:13px}.demo{background:#fdf1d8;color:var(--warn);padding:8px 12px;border-radius:6px}a{color:var(--accent)}
 </style></head><body><main>
-<h1>Juice Shop test run</h1>
+<h1>Juice Shop Dashboard</h1>
+${isDemo() ? '<p class="demo">Demo: review state is in <code>.demo/</code>, starting empty. The committed review is untouched.</p>' : ''}
 <p class="sub">${esc(new Date(stats.startTime).toLocaleString())} · ${(stats.duration / 1000).toFixed(0)} s · ${rows.length} tests · <a href="playwright/index.html">Playwright report with traces</a> · <a href="${process.env.GITHUB_REPOSITORY ? `${process.env.GITHUB_SERVER_URL ?? 'https://github.com'}/${process.env.GITHUB_REPOSITORY}/blob/main/docs/coverage.md` : '../docs/coverage.md'}">coverage map</a></p>
 <section class="tiles">${tiles.map(([label, n, tone]) => `<div class="tile ${tone}"><b>${n}</b>${label}</div>`).join('')}</section>
 

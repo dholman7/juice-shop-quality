@@ -16,17 +16,43 @@ Playwright + TypeScript suite for the top 3 risks in the case-study strategy, a 
 
 ## Run it
 
-Needs Docker, Node (version in `.nvmrc`), and Yarn 1 (version in `package.json` → `packageManager`; `corepack enable` provides it).
+### 1. Set up (once)
+
+Needs Docker (running), Node (version in `.nvmrc`), and Yarn 1 (`corepack enable` provides the version in `package.json`).
 
 ```bash
+git clone https://github.com/dholman7/juice-shop-quality.git
+cd juice-shop-quality
+corepack enable
 yarn install --frozen-lockfile
 yarn playwright install chromium
+```
+
+### 2. See the whole flow from scratch: demo mode
+
+The repo holds a finished review (26 approved bugs), so a normal run has nothing left to decide. Demo mode starts empty, keeps its decisions in `.demo/` (git-ignored), and never changes the committed files.
+
+```bash
+yarn demo
+yarn demo:review
+```
+
+1. `yarn demo` runs everything (about two minutes; the first run also downloads the Juice Shop and ZAP images) and ends with 75 failing tests in 41 groups and 2 medium scan findings, all undecided. Open `reports/index.html` to see them.
+2. `yarn demo:review` opens the review page at `http://127.0.0.1:4321`. Enter your name, then decide some items: pick a cause, find or file the bug (Jira key, impact, likelihood), dismiss or file a scan finding. Stop it with Ctrl+C.
+3. `yarn demo:rerun` runs again with your decisions: their tests now count as open bugs, not new failures.
+
+`yarn demo` again starts over from empty.
+
+### 3. Run it for real
+
+```bash
 yarn all
+yarn review
 ```
 
 `yarn all` starts a fresh Juice Shop container, runs the ZAP baseline scan, runs every test, asks the triage agent to propose a cause for each new failure, and writes:
 
-- `reports/index.html`: summary, progress against the strategy's day-90 measures with a trend across runs, triage proposals waiting for review, open bugs, and the endpoint-by-role coverage grid (hover or tap a cell to see its tests and their results)
+- `reports/index.html`: the dashboard: summary, progress against the strategy's day-90 measures with a trend across runs, triage proposals waiting for review, open bugs, and the endpoint-by-role coverage grid (hover or tap a cell to see its tests and their results)
 - `reports/zap/zap.html`: ZAP's own report of the scan
 - `reports/history.json`: one summary per run; CI carries it forward between published runs, so the trend survives
 - `reports/playwright/index.html`: every test with traces and screenshots for failures
@@ -34,12 +60,13 @@ yarn all
 
 It exits non-zero if any test fails that is not an approved open bug, if an approved bug's test starts passing, if the scan raises a medium or high finding nobody has decided on, or if a bug's severity doesn't match its impact × likelihood score. It takes about two minutes.
 
-Then `yarn review` opens a local page to decide what the run found (see [the triage agent](#why-the-triage-agent-step-2)).
+`yarn review` opens the same review page on the committed state: what it decides goes into `known-bugs.json`, `triage/decisions.jsonl`, and `security/zap-findings.json`, which you commit (see [the triage agent](#why-the-triage-agent-step-2)).
 
 **In CI** ([`tests.yml`](.github/workflows/tests.yml)): every pull request, push to `main`, and nightly run (07:00 UTC) runs the typecheck, unit tests, and `yarn all`, and uploads the report as a build artifact. Runs on `main` also publish it to GitHub Pages, carrying `history.json` forward so the trend builds without a database.
 
 | Command | What it does |
 |:--|:--|
+| `yarn demo`, `demo:review`, `demo:rerun` | Demo mode: the whole flow from an empty review, kept in `.demo/`; the committed files are untouched |
 | `yarn review` | **The review, on a local web page** (opens `http://127.0.0.1:4321`): severity check, failure groups, and scan findings, with the same rules and files as the terminal reviews below. Stop with Ctrl+C. |
 | `yarn app:up` / `app:down` | Fresh Juice Shop with per-worker staff test accounts / remove it |
 | `yarn test`, `yarn test:api`, `yarn test:ui` | Playwright only, against the running app |

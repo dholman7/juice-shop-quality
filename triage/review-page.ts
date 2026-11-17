@@ -17,6 +17,7 @@ import {
   CAUSES, SCORE_HELP, appendDecision, areaOf, fileBug, loadRun, pendingProposals, reviewer, ruleOf, saveBugs, today, type BugTarget,
 } from './review-core';
 import { readSummary, recordDecision, undecided } from '../security/zap';
+import { isDemo } from '../src/review-state';
 
 const PORT = Number(process.env.REVIEW_PORT ?? 4321);
 const PAGE = fileURLToPath(new URL('./review-page.html', import.meta.url));
@@ -67,6 +68,7 @@ function state() {
     categories: CATEGORIES,
     scoreHelp: SCORE_HELP,
     openBugs: bugs.length,
+    demo: isDemo(),
   };
 }
 
@@ -189,7 +191,7 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Review page: ${origin}  (Ctrl+C to stop)`);
+  console.log(`Review page${isDemo() ? ' (demo: decisions go to .demo/, not the committed files)' : ''}: ${origin}  (Ctrl+C to stop)`);
   if (process.env.NO_OPEN === '1') return;
   const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open';
   spawn(opener, [origin], { stdio: 'ignore', detached: true }).on('error', () => undefined).unref();
