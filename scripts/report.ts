@@ -161,7 +161,7 @@ ${progress(history)}
 
 <h2>Waiting for a person</h2>
 <p class="legend">The triage agent (${esc(triage?.provider ?? 'not run')}) grouped new failures and proposed a cause for each group. Nothing is filed until someone runs <code>yarn triage:review</code>.</p>
-${pendingRows.length ? `<div class="scroll"><table><thead><tr><th>Proposed</th><th>Tests</th><th>Example</th><th>Evidence (quoted from the failure)</th><th>Confidence</th></tr></thead><tbody>${pendingRows.join('')}</tbody></table></div>` : '<p>Nothing to review.</p>'}
+${pendingRows.length ? `<div class="scroll"><table><thead><tr><th>Likely cause</th><th>Tests</th><th>Example</th><th>Evidence (quoted from the failure)</th><th>Confidence</th></tr></thead><tbody>${pendingRows.join('')}</tbody></table></div>` : '<p>Nothing to review.</p>'}
 
 <h2>By risk area</h2>
 <table><thead><tr><th>Area</th><th class="num">Tests</th><th class="num">Passed</th><th class="num">New failures</th><th class="num">Open bugs</th><th class="num">Flaky</th></tr></thead><tbody>${byArea.join('')}</tbody></table>

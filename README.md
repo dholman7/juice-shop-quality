@@ -10,6 +10,8 @@ Playwright + TypeScript suite for the top 3 risks in the case-study strategy, pl
 | Extra piece (step 2) | Failure-triage agent with a human review gate |
 | Latest report | [dholman7.github.io/juice-shop-quality](https://dholman7.github.io/juice-shop-quality/), published by CI from `main` and nightly |
 
+**How a team would use it.** This repo can stay central. A squad's pull request triggers the tests its change touches (by risk-area tag or endpoint) and gets the results back on that pull request, so testing never waits for release time. Moving tests next to the product code is an option, not a requirement.
+
 ## Run it
 
 Needs Docker, Node (version in `.nvmrc`), and Yarn 1 (version in `package.json` → `packageManager`; `corepack enable` provides it).
