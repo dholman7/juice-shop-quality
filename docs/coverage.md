@@ -9,43 +9,43 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 
 | Endpoint | anonymous | customer | deluxe | accounting | admin | Tests |
 |:--|:-:|:-:|:-:|:-:|:-:|--:|
-| `GET /rest/basket/:id` | ✗ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | 15 |
-| `GET /api/BasketItems` | ✗ pass | ✗ **FAIL** | ✗ **FAIL** | ✗ **FAIL** | ✓ pass | 5 |
-| `POST /api/BasketItems` | ✗ pass | ✓ **FAIL** | ✓ **FAIL** | ✓ pass | ✓ pass | 12 |
-| `GET /api/BasketItems/:id` | ✗ pass | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | 10 |
-| `PUT /api/BasketItems/:id` | ✗ pass | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | 16 |
-| `DELETE /api/BasketItems/:id` | ✗ pass | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | 11 |
+| `GET /rest/basket/:id` | ✗ bug | ✓ bug | ✓ bug | ✓ bug | ✓ bug | 15 |
+| `GET /api/BasketItems` | ✗ pass | ✗ bug | ✗ bug | ✗ bug | ✓ pass | 5 |
+| `POST /api/BasketItems` | ✗ pass | ✓ bug | ✓ bug | ✓ pass | ✓ pass | 12 |
+| `GET /api/BasketItems/:id` | ✗ pass | ✓ bug | ✓ bug | ✓ bug | ✓ bug | 10 |
+| `PUT /api/BasketItems/:id` | ✗ pass | ✓ bug | ✓ bug | ✓ bug | ✓ bug | 16 |
+| `DELETE /api/BasketItems/:id` | ✗ pass | ✓ bug | ✓ bug | ✓ bug | ✓ bug | 11 |
 | `GET /api/Addresss` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 9 |
-| `POST /api/Addresss` | ✗ pass | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 13 |
+| `POST /api/Addresss` | ✗ pass | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 13 |
 | `GET /api/Addresss/:id` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 10 |
-| `PUT /api/Addresss/:id` | ✗ pass | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | 10 |
+| `PUT /api/Addresss/:id` | ✗ pass | ✓ bug | ✓ bug | ✓ bug | ✓ bug | 10 |
 | `DELETE /api/Addresss/:id` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 10 |
 | `GET /api/Cards` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 10 |
-| `POST /api/Cards` | ✗ pass | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 11 |
+| `POST /api/Cards` | ✗ pass | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 11 |
 | `GET /api/Cards/:id` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 10 |
 | `PUT /api/Cards/:id` | ✗ pass | ✗ pass | ✗ pass | ✗ pass | ✗ pass | 5 |
 | `DELETE /api/Cards/:id` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 11 |
-| `GET /rest/order-history` | ✗ **FAIL** | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 10 |
-| `GET /rest/image-captcha` | ✗ pass | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 6 |
-| `POST /rest/user/data-export` | ✗ pass | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 8 |
-| `GET /api/Users` | ✗ pass | ✗ **FAIL** | ✗ **FAIL** | ✗ **FAIL** | ✓ pass | 9 |
-| `GET /api/Users/:id` | ✗ pass | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ pass | 11 |
+| `GET /rest/order-history` | ✗ bug | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 10 |
+| `GET /rest/image-captcha` | ✗ pass | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 6 |
+| `POST /rest/user/data-export` | ✗ pass | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 8 |
+| `GET /api/Users` | ✗ pass | ✗ bug | ✗ bug | ✗ bug | ✓ pass | 9 |
+| `GET /api/Users/:id` | ✗ pass | ✓ bug | ✓ bug | ✓ bug | ✓ pass | 11 |
 | `PUT /api/Users/:id` | ✗ pass | ✗ pass | ✗ pass | ✗ pass | ✗ pass | 5 |
 | `DELETE /api/Users/:id` | ✗ pass | ✗ pass | ✗ pass | ✗ pass | ✗ pass | 5 |
-| `GET /rest/user/authentication-details` | ✗ pass | ✗ **FAIL** | ✗ **FAIL** | ✗ **FAIL** | ✓ pass | 5 |
+| `GET /rest/user/authentication-details` | ✗ pass | ✗ bug | ✗ bug | ✗ bug | ✓ pass | 5 |
 
 ## R2 Checkout and payment
 
 | Endpoint | anonymous | customer | deluxe | accounting | admin | Tests |
 |:--|:-:|:-:|:-:|:-:|:-:|--:|
-| `PUT /rest/basket/:id/coupon/:coupon` | ✗ pass | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | 15 |
-| `POST /rest/basket/:id/checkout` | ✗ pass | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | ✓ **FAIL** | 20 |
+| `PUT /rest/basket/:id/coupon/:coupon` | ✗ pass | ✓ bug | ✓ bug | ✓ bug | ✓ bug | 15 |
+| `POST /rest/basket/:id/checkout` | ✗ pass | ✓ bug | ✓ bug | ✓ bug | ✓ bug | 20 |
 | `GET /api/Deliverys` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 | `GET /api/Deliverys/:id` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 | `GET /rest/wallet/balance` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
-| `PUT /rest/wallet/balance` | ✗ pass | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 9 |
+| `PUT /rest/wallet/balance` | ✗ pass | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 9 |
 | `GET /rest/deluxe-membership` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
-| `POST /rest/deluxe-membership` | ✗ pass | ✓ **FAIL** | ✗ pass | ✗ pass | ✗ pass | 9 |
+| `POST /rest/deluxe-membership` | ✗ pass | ✓ bug | ✗ pass | ✗ pass | ✗ pass | 9 |
 | `GET /rest/track-order/:id` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 8 |
 | `GET /rest/order-history/orders` | ✗ pass | ✗ pass | ✗ pass | ✓ pass | ✗ pass | 9 |
 | `PUT /rest/order-history/:id/delivery-status` | ✗ pass | ✗ pass | ✗ pass | ✓ pass | ✗ pass | 7 |
@@ -55,8 +55,8 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 | `DELETE /api/Quantitys/:id` | ✗ pass | ✗ pass | ✗ pass | ✗ pass | ✗ pass | 5 |
 | `GET /api/Products` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 | `GET /api/Products/:id` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
-| `POST /api/Products` | ✗ pass | ✗ **FAIL** | ✗ **FAIL** | ✗ **FAIL** | ✓ pass | 5 |
-| `PUT /api/Products/:id` | ✗ **FAIL** | ✗ **FAIL** | ✗ **FAIL** | ✗ **FAIL** | ✓ pass | 5 |
+| `POST /api/Products` | ✗ pass | ✗ bug | ✗ bug | ✗ bug | ✓ pass | 5 |
+| `PUT /api/Products/:id` | ✗ bug | ✗ bug | ✗ bug | ✗ bug | ✓ pass | 5 |
 | `DELETE /api/Products/:id` | ✗ pass | ✗ pass | ✗ pass | ✗ pass | ✗ pass | 5 |
 | `POST /b2b/v2/orders` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 
@@ -64,12 +64,12 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 
 | Endpoint | anonymous | customer | deluxe | accounting | admin | Tests |
 |:--|:-:|:-:|:-:|:-:|:-:|--:|
-| `POST /api/Users` | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 11 |
-| `POST /rest/user/login` | ✓ **FAIL** | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 15 |
+| `POST /api/Users` | ✓ bug | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 11 |
+| `POST /rest/user/login` | ✓ bug | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 15 |
 | `GET /rest/user/whoami` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 6 |
-| `GET /rest/saveLoginIp` | ✗ pass | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 6 |
-| `GET /rest/user/change-password` | ✗ **FAIL** | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 10 |
-| `POST /rest/user/reset-password` | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 8 |
+| `GET /rest/saveLoginIp` | ✗ pass | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 6 |
+| `GET /rest/user/change-password` | ✗ bug | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 11 |
+| `POST /rest/user/reset-password` | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 9 |
 | `GET /rest/user/security-question` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 6 |
 | `GET /api/SecurityQuestions` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 | `GET /api/SecurityQuestions/:id` | ✗ pass | ✗ pass | ✗ pass | ✗ pass | ✗ pass | 5 |
@@ -82,9 +82,9 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 | `POST /rest/2fa/verify` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 8 |
 | `POST /rest/2fa/disable` <sup title="Not run as admin or accounting, for the same reason as setup.">note</sup> | ✗ pass | ✓ pass | ✓ pass | ✓ skip | ✓ skip | 6 |
 | `GET /rest/passkey/register-options` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
-| `POST /rest/passkey/register-verify` <sup title="Signed by a software authenticator (src/passkey.ts): real keys and signatures, verified by Juice Shop; only the hardware is simulated.">note</sup> | ✗ pass | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 6 |
+| `POST /rest/passkey/register-verify` <sup title="Signed by a software authenticator (src/passkey.ts): real keys and signatures, verified by Juice Shop; only the hardware is simulated.">note</sup> | ✗ pass | ✓ bug | ✓ pass | ✓ pass | ✓ pass | 6 |
 | `POST /rest/passkey/login-options` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
-| `POST /rest/passkey/login-verify` <sup title="Signed by a software authenticator (src/passkey.ts); tests/api/auth.spec.ts covers bad signatures and credential hijacking.">note</sup> | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 8 |
+| `POST /rest/passkey/login-verify` <sup title="Signed by a software authenticator (src/passkey.ts); tests/api/auth.spec.ts covers bad signatures and credential hijacking.">note</sup> | ✓ bug | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 8 |
 | `GET /rest/passkey/credentials` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 | `DELETE /rest/passkey/credentials/:id` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 
