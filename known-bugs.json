@@ -5,6 +5,8 @@
       "jira": "SHOP-214",
       "title": "Any signed-in user can list, read, change, and delete other customers' basket items",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R1",
       "tests": [
         "api/access-matrix.spec.ts › R1 Customer data isolation › GET /api/BasketItems › refuses customer",
@@ -37,6 +39,8 @@
       "jira": "SHOP-215",
       "title": "Some calls without a session fail with 500 instead of 401",
       "severity": "low",
+      "impact": 1,
+      "likelihood": 5,
       "area": "R1",
       "tests": [
         "api/access-matrix.spec.ts › R1 Customer data isolation › GET /rest/order-history › refuses anonymous",
@@ -55,6 +59,8 @@
       "jira": "SHOP-216",
       "title": "Any signed-in user can read any user record, the full user list, and login details",
       "severity": "high",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R1",
       "tests": [
         "api/access-matrix.spec.ts › R1 Customer data isolation › GET /api/Users › refuses customer",
@@ -80,6 +86,8 @@
       "jira": "SHOP-217",
       "title": "Non-admins can create products",
       "severity": "high",
+      "impact": 3,
+      "likelihood": 5,
       "area": "R2",
       "tests": [
         "api/access-matrix.spec.ts › R2 Checkout and payment › POST /api/Products › refuses customer",
@@ -97,6 +105,8 @@
       "jira": "SHOP-218",
       "title": "Anyone, even signed out, can change a product's price",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R2",
       "tests": [
         "api/access-matrix.spec.ts › R2 Checkout and payment › PUT /api/Products/:id › refuses anonymous",
@@ -115,6 +125,8 @@
       "jira": "SHOP-219",
       "title": "Sign-up accepts role: admin",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 sign-up › ignores a role sent with the sign-up form"
@@ -130,6 +142,8 @@
       "jira": "SHOP-220",
       "title": "Sign-up accepts mismatched passwords",
       "severity": "low",
+      "impact": 1,
+      "likelihood": 3,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 sign-up › rejects passwords that do not match"
@@ -145,6 +159,8 @@
       "jira": "SHOP-221",
       "title": "The password hash is in the session token and in API responses",
       "severity": "high",
+      "impact": 4,
+      "likelihood": 3,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 login › the session token does not carry the password hash",
@@ -164,6 +180,8 @@
       "jira": "SHOP-222",
       "title": "SQL injection in the login email signs in as admin",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 login › is not fooled by SQL in the email field"
@@ -179,6 +197,8 @@
       "jira": "SHOP-223",
       "title": "No rate limit on wrong passwords",
       "severity": "medium",
+      "impact": 4,
+      "likelihood": 3,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 login › slows down repeated wrong passwords for one account"
@@ -194,6 +214,8 @@
       "jira": "SHOP-224",
       "title": "Unsigned session tokens (alg: none) are accepted",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 login › rejects a session token that is not signed"
@@ -209,6 +231,8 @@
       "jira": "SHOP-225",
       "title": "Passkey sign-in ignores the signature",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 passkeys › a sign-in signed by the wrong key is refused"
@@ -224,6 +248,8 @@
       "jira": "SHOP-226",
       "title": "Registering another account's passkey credential id takes it over",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 4,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 passkeys › another customer's credential id cannot be registered again"
@@ -239,6 +265,8 @@
       "jira": "SHOP-227",
       "title": "Changing the password does not require the current one",
       "severity": "high",
+      "impact": 4,
+      "likelihood": 3,
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 passwords › changing the password requires the current password"
@@ -254,6 +282,8 @@
       "jira": "SHOP-228",
       "title": "Checkout accepts an empty basket and orders with no address or payment",
       "severity": "high",
+      "impact": 4,
+      "likelihood": 4,
       "area": "R2",
       "tests": [
         "api/checkout.spec.ts › R2 checkout › refuses to check out an empty basket",
@@ -270,6 +300,8 @@
       "jira": "SHOP-229",
       "title": "Zero and negative quantities are accepted, producing negative order totals",
       "severity": "high",
+      "impact": 4,
+      "likelihood": 4,
       "area": "R2",
       "tests": [
         "api/checkout.spec.ts › R2 checkout › refuses a negative quantity at checkout",
@@ -288,6 +320,8 @@
       "jira": "SHOP-230",
       "title": "Negative wallet top-ups are accepted",
       "severity": "high",
+      "impact": 4,
+      "likelihood": 4,
       "area": "R2",
       "tests": [
         "api/checkout.spec.ts › R2 wallet › refuses a negative top-up"
@@ -303,6 +337,8 @@
       "jira": "SHOP-231",
       "title": "Deluxe membership is granted without payment",
       "severity": "high",
+      "impact": 3,
+      "likelihood": 5,
       "area": "R2",
       "tests": [
         "api/checkout.spec.ts › R2 deluxe membership › refuses deluxe without a valid payment"
@@ -318,6 +354,8 @@
       "jira": "SHOP-232",
       "title": "The token issued at deluxe upgrade cannot use the basket until the customer logs in again",
       "severity": "medium",
+      "impact": 2,
+      "likelihood": 5,
       "area": "R2",
       "tests": [
         "api/checkout.spec.ts › R2 deluxe membership › the token issued at upgrade can still use the basket"
@@ -333,6 +371,8 @@
       "jira": "SHOP-233",
       "title": "An address with no name is accepted",
       "severity": "low",
+      "impact": 2,
+      "likelihood": 2,
       "area": "R1",
       "tests": [
         "api/customer-data.spec.ts › R1 addresses › rejects an address with an invalid fullName"
@@ -348,6 +388,8 @@
       "jira": "SHOP-234",
       "title": "Saving a card echoes the full card number",
       "severity": "high",
+      "impact": 4,
+      "likelihood": 4,
       "area": "R1",
       "tests": [
         "api/customer-data.spec.ts › R1 payment cards › never echoes the full card number when a card is saved"
@@ -363,6 +405,8 @@
       "jira": "SHOP-235",
       "title": "The data export CAPTCHA returns its own answer and can be skipped",
       "severity": "medium",
+      "impact": 2,
+      "likelihood": 4,
       "area": "R1",
       "tests": [
         "api/customer-data.spec.ts › R1 account data › the data export CAPTCHA does not include its own answer",
@@ -380,6 +424,8 @@
       "jira": "SHOP-236",
       "title": "Any signed-in user can read any customer's basket by id",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R1",
       "tests": [
         "api/isolation.spec.ts › R1 isolation › GET /rest/basket/:id on another customer's record › refuses customer",
@@ -398,6 +444,8 @@
       "jira": "SHOP-237",
       "title": "Updating another customer's address succeeds and moves it to the caller's account",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R1",
       "tests": [
         "api/isolation.spec.ts › R1 isolation › PUT /api/Addresss/:id on another customer's record › refuses customer",
@@ -416,6 +464,8 @@
       "jira": "SHOP-238",
       "title": "Any signed-in user can apply a coupon to, or check out, another customer's basket",
       "severity": "critical",
+      "impact": 5,
+      "likelihood": 5,
       "area": "R2",
       "tests": [
         "api/isolation.spec.ts › R2 isolation › PUT /rest/basket/:id/coupon/:coupon on another customer's record › refuses customer",
@@ -439,6 +489,8 @@
       "jira": "SHOP-239",
       "title": "Sending BasketId twice adds items to another customer's basket",
       "severity": "critical",
+      "impact": 3,
+      "likelihood": 4,
       "area": "R1",
       "tests": [
         "api/isolation.spec.ts › R1 isolation › a duplicate BasketId key cannot add items to another customer's basket"

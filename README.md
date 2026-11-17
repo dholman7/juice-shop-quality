@@ -31,7 +31,7 @@ yarn all
 - `reports/playwright/index.html`: every test with traces and screenshots for failures
 - `docs/coverage.md`: the coverage map, regenerated from the run
 
-It exits non-zero if any test fails that is not an approved open bug, if an approved bug's test starts passing, or if the scan raises a medium or high finding nobody has decided on. It takes about two minutes.
+It exits non-zero if any test fails that is not an approved open bug, if an approved bug's test starts passing, if the scan raises a medium or high finding nobody has decided on, or if a bug's severity doesn't match its impact × likelihood score. It takes about two minutes.
 
 **In CI** ([`tests.yml`](.github/workflows/tests.yml)): every pull request, push to `main`, and nightly run (07:00 UTC) runs the typecheck, unit tests, and `yarn all`, and uploads the report as a build artifact. Runs on `main` also publish it to GitHub Pages, carrying `history.json` forward so the trend builds without a database.
 
@@ -46,7 +46,7 @@ It exits non-zero if any test fails that is not an approved open bug, if an appr
 | `yarn triage` | Propose a cause for each failure group (offline rules) |
 | `TRIAGE_PROVIDER=claude yarn triage` | Same, classified by Claude through the local `claude` CLI |
 | `REVIEWER="Your Name" yarn triage:review` | A person accepts, changes, or rejects each group. The screen shows the rule being tested, the likely cause, quoted evidence, and severity. |
-| `REVIEWER="Your Name" yarn triage:rate` | A person changes an open bug's severity with a reason; the change is kept on the bug and shown in the report |
+| `REVIEWER="Your Name" yarn triage:rate` | A person changes an open bug's impact and likelihood scores with a reason; the severity follows, and the change is kept on the bug and shown in the report |
 | `yarn report`, `yarn coverage:map` | Rebuild the report or coverage map from the last run |
 | `yarn test:unit` | Unit tests for triage (redaction, rules, validation, grouping, duplicate suggestions), run history, the software passkey, and the scan gate |
 
@@ -80,7 +80,7 @@ Not run, with the reason recorded in the catalog note:
 
 ## What the suite found
 
-Each item below is a failing test today, unless noted. Severity is rated per finding.
+Each item below is a failing test today, unless noted. Severity is impact × likelihood, scored per finding.
 
 | Area | Finding | Severity |
 |:--|:--|:--|
@@ -128,7 +128,7 @@ How it works ([`triage/`](triage)):
    - **`claude`**: Claude through the local `claude` CLI, with a JSON schema for the answer. In CI it would call the Claude API with a key from the pipeline's secret store.
    - The model sees the first failure in the group (12 redacted lines) and the endpoint's access rule, not the test source or the trace. A team version would add both.
 5. [`model.ts`](triage/model.ts) validates every model answer: the evidence must be a verbatim quote from the failure text, and "flaky" requires a retry that passed. If either check fails, the answer drops to `needs-human`. The model never gets the final say.
-6. `yarn triage:review` shows each group to a person: accept, change the likely cause, reject, or skip. For an accepted product bug, [`duplicates.ts`](triage/duplicates.ts) lists up to three open bugs it may duplicate, each with the reason (same endpoint, same records, similar title), so the reviewer picks a number instead of remembering bug ids. Typing a word searches open bug titles. A new bug needs the Jira key it is reported in; a key already on file adds the group to that bug. Only accepted product bugs reach `known-bugs.json`, with the Jira key, the reviewer's name, the date, and a severity. The severity is suggested from the risk area, and the reviewer rates the finding itself. Every decision is logged in `triage/decisions.jsonl`.
+6. `yarn triage:review` shows each group to a person: accept, change the likely cause, reject, or skip. For an accepted product bug, [`duplicates.ts`](triage/duplicates.ts) lists up to three open bugs it may duplicate, each with the reason (same endpoint, same records, similar title), so the reviewer picks a number instead of remembering bug ids. Typing a word searches open bug titles. A new bug needs the Jira key it is reported in; a key already on file adds the group to that bug. Only accepted product bugs reach `known-bugs.json`, with the Jira key, the reviewer's name, the date, and impact and likelihood scores (1–5). Severity is computed from them: risk = impact × likelihood, 20+ critical, 12+ high, 6+ medium, else low. Review starts with any bug whose severity doesn't match its score; `yarn all` stays red until it does. Every decision is logged in `triage/decisions.jsonl`.
 
 **First real run (73 failures, 39 groups), Claude (Haiku) against the rules on the same groups:**
 

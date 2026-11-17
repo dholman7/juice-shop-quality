@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { AREAS, ENDPOINTS, allows, type Area } from '../src/catalog';
 import { ROLES } from '../src/config';
-import { loadKnownBugs } from '../src/known-bugs';
+import { loadKnownBugs, severityMismatches } from '../src/known-bugs';
 import { readRows, type Row } from './results';
 import { readHistory, summarize, type RunSummary } from './history';
 import type { TriageRun } from '../triage/cli';
@@ -123,6 +123,7 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
 
   const zap = readSummary();
   const zapNew = zap?.newFindings.length ?? 0;
+  const mismatched = new Set(severityMismatches(bugs).map((b) => b.id));
   const tiles = [
     ['Passed', count('passed'), 'ok'],
     ['New failures', count('failed'), count('failed') ? 'bad' : 'ok'],
@@ -131,6 +132,7 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
     ['Bug fixed?', count('fixed'), count('fixed') ? 'warn' : 'ok'],
     ['Skipped', count('skipped'), 'muted'],
     ['New scan findings', zap ? zapNew : '–', !zap ? 'muted' : zapNew ? 'bad' : 'ok'],
+    ['Severity off score', mismatched.size, mismatched.size ? 'bad' : 'ok'],
   ] as const;
 
   const byArea = (Object.keys(AREAS) as Area[]).map((a) => {
@@ -169,7 +171,7 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
   const bugRows = bugs.map((b) => {
     const failing = rows.filter((r) => r.knownBug?.startsWith(`${b.id}:`) && r.result === 'known-bug').length;
     const fixed = rows.filter((r) => r.knownBug?.startsWith(`${b.id}:`) && r.result === 'fixed').length;
-    return `<tr><td>${b.id}<br><span class="legend">${esc(b.jira)}</span></td><td><span class="pill sev-${b.severity}">${b.severity}</span></td><td>${b.area}</td><td>${esc(b.title)}</td><td class="num">${failing}${fixed ? ` <span class="pill fixed">${fixed} now pass</span>` : ''}</td><td>${esc(b.approvedBy)} · ${b.approvedOn}${b.rerated?.length ? ((r) => `<br><span class="legend">re-rated ${r.from} → ${r.to} by ${esc(r.by)} · ${r.on}: ${esc(r.reason)}</span>`)(b.rerated[b.rerated.length - 1]) : ''}</td></tr>`;
+    return `<tr><td>${b.id}<br><span class="legend">${esc(b.jira)}</span></td><td><span class="pill sev-${b.severity}">${b.severity}</span><br><span class="legend">I${b.impact} × L${b.likelihood} = ${b.impact * b.likelihood}</span>${mismatched.has(b.id) ? '<br><span class="pill bad">not the score\'s band</span>' : ''}</td><td>${b.area}</td><td>${esc(b.title)}</td><td class="num">${failing}${fixed ? ` <span class="pill fixed">${fixed} now pass</span>` : ''}</td><td>${esc(b.approvedBy)} · ${b.approvedOn}${b.rerated?.length ? ((r) => `<br><span class="legend">re-scored I${r.impact} × L${r.likelihood}, ${r.from} → ${r.to} by ${esc(r.by)} · ${r.on}: ${esc(r.reason)}</span>`)(b.rerated[b.rerated.length - 1]) : ''}</td></tr>`;
   });
 
   return `<!doctype html>
@@ -188,7 +190,7 @@ th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;verti
 .num{text-align:right;font-variant-numeric:tabular-nums}.scroll{overflow-x:auto}code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace}
 .grid td.cell{text-align:center;width:90px;font-weight:600}.cell.passed{background:#e6f4ec;color:var(--ok)}.cell.known-bug{background:#fdf1d8;color:var(--warn)}
 .cell.failed,.cell.fixed{background:#fde8e6;color:var(--bad)}.cell.flaky{background:#efe6fb;color:#6b3fa0}.cell.skipped,.cell.none{color:#9aa5b1}
-.pill{display:inline-block;white-space:nowrap;padding:1px 8px;border-radius:99px;font-size:12px;background:#eef1f4}.pill.product-bug,.pill.sev-critical{background:#fde8e6;color:var(--bad)}
+.pill{display:inline-block;white-space:nowrap;padding:1px 8px;border-radius:99px;font-size:12px;background:#eef1f4}.pill.product-bug,.pill.sev-critical,.pill.bad{background:#fde8e6;color:var(--bad)}
 .pill.test-bug,.pill.sev-high,.pill.sev-medium{background:#fdf1d8;color:var(--warn)}.pill.flaky{background:#efe6fb;color:#6b3fa0}.pill.environment{background:#e3eefa;color:var(--accent)}
 .pill.fixed,.pill.st-ok{background:#e6f4ec;color:var(--ok)}.pill.st-warn{background:#fdf1d8;color:var(--warn)}.pill.st-muted{color:var(--muted)}
 .cell[data-tip]{cursor:help}.cell:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
@@ -209,6 +211,7 @@ ${pendingRows.length ? `<div class="scroll"><table><thead><tr><th>Likely cause</
 <table><thead><tr><th>Area</th><th class="num">Tests</th><th class="num">Passed</th><th class="num">New failures</th><th class="num">Open bugs</th><th class="num">Flaky</th></tr></thead><tbody>${byArea.join('')}</tbody></table>
 
 <h2>Open bugs</h2>
+<p class="legend">Severity is impact × likelihood, each 1–5: 20+ critical, 12+ high, 6+ medium, else low.${mismatched.size ? ` ${mismatched.size} bug(s) don't match their score; <code>yarn triage:review</code> starts with them.` : ''}</p>
 ${bugRows.length ? `<div class="scroll"><table><thead><tr><th>Bug</th><th>Severity</th><th>Area</th><th>Title</th><th class="num">Failing tests</th><th>Approved</th></tr></thead><tbody>${bugRows.join('')}</tbody></table></div>` : '<p>No approved bugs yet.</p>'}
 
 ${security(zap)}

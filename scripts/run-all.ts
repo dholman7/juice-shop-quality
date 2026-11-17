@@ -4,7 +4,7 @@
  *   TRIAGE_PROVIDER=claude yarn all   triage with Claude through the local `claude` CLI
  *   SKIP_ZAP=1 yarn all               skip the security scan
  * Exits non-zero on a test failure that is not an approved open bug, an open bug's test that now passes,
- * an undecided medium or high scan finding, or a scan that errors.
+ * an undecided medium or high scan finding, a scan that errors, or a bug whose severity isn't its score's band.
  */
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -14,6 +14,7 @@ import { buildReport } from './report';
 import { recordRun, summarize } from './history';
 import { coverageMarkdown } from './coverage-map';
 import { readRows } from './results';
+import { loadKnownBugs, severityMismatches } from '../src/known-bugs';
 import { SUMMARY as ZAP_SUMMARY, printSummary, scan, type ZapSummary } from '../security/zap';
 
 if (process.env.SKIP_APP !== '1') {
@@ -52,7 +53,9 @@ const n = (r: string) => rows.filter((x) => x.result === r).length;
 console.log(`\n${n('passed')} passed · ${n('failed')} new failures · ${n('known-bug')} open bugs · ${n('flaky')} flaky · ${n('skipped')} skipped`);
 console.log(`Triage: ${run.groups.length} group(s) proposed (${run.provider}). Review with \`yarn triage:review\`.`);
 if (zap) printSummary(zap);
+const offScore = severityMismatches(loadKnownBugs());
+if (offScore.length) console.log(`Severity: ${offScore.map((b) => b.id).join(', ')} don't match impact × likelihood. Fix with \`yarn triage:review\`.`);
 console.log('Report: reports/index.html');
 // Red on a new failure, and on a "fixed" known bug, so its registry entry gets removed rather than forgotten.
-// Red on an undecided medium or high scan finding, or a scan that didn't run.
-process.exit(n('failed') + n('fixed') + (zap?.newFindings.length ?? 0) > 0 || zapError ? 1 : 0);
+// Red on an undecided medium or high scan finding, a scan that didn't run, or a severity that isn't its score's band.
+process.exit(n('failed') + n('fixed') + (zap?.newFindings.length ?? 0) + offScore.length > 0 || zapError ? 1 : 0);

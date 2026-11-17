@@ -13,7 +13,12 @@ export interface KnownBug {
   /** The tracker ticket the bug is reported in, e.g. SHOP-214. */
   jira: string;
   title: string;
+  /** Always the band of impact × likelihood; see severityFor. */
   severity: 'critical' | 'high' | 'medium' | 'low';
+  /** 1–5: harm to customers, money, or the business, and how many customers one failure reaches. */
+  impact: number;
+  /** 1–5: how easily it is hit. 5 = a plain request by anyone signed in or out; 1 = unlikely. */
+  likelihood: number;
   area: string;
   /** Test keys (see testKey). A trailing `*` matches every test that starts with the prefix. */
   tests: string[];
@@ -21,7 +26,7 @@ export interface KnownBug {
   endpoints?: string[];
   approvedBy: string;
   approvedOn: string;
-  /** Severity changes after approval, oldest first. Written by `yarn triage:rate`. */
+  /** Score and severity changes after approval, oldest first. Written by review and `yarn triage:rate`. */
   rerated?: Rerating[];
 }
 
@@ -42,16 +47,39 @@ export function findBug(bugs: KnownBug[], idOrKey: string): KnownBug | undefined
 export interface Rerating {
   from: Severity;
   to: Severity;
+  /** The scores after the change. */
+  impact: number;
+  likelihood: number;
   reason: string;
   by: string;
   on: string;
 }
 
-/** A bug with its severity changed and the change recorded. Refuses a no-op or a change without a reason. */
-export function rerate(bug: KnownBug, to: Severity, reason: string, by: string, on: string): KnownBug {
-  if (to === bug.severity) throw new Error(`${bug.id} is already ${to}`);
+/** A whole number from 1 to 5. */
+export const isScore = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 5;
+
+/** Risk = impact × likelihood, banded: 20–25 critical, 12–19 high, 6–11 medium, 1–5 low. */
+export function severityFor(impact: number, likelihood: number): Severity {
+  if (!isScore(impact) || !isScore(likelihood)) throw new Error(`scores must be 1–5, got ${impact} and ${likelihood}`);
+  const risk = impact * likelihood;
+  return risk >= 20 ? 'critical' : risk >= 12 ? 'high' : risk >= 6 ? 'medium' : 'low';
+}
+
+/** Bugs whose severity isn't the band of their scores, or that have no valid scores. Each fails the run until reviewed. */
+export function severityMismatches(bugs: KnownBug[]): KnownBug[] {
+  return bugs.filter((b) => !isScore(b.impact) || !isScore(b.likelihood) || b.severity !== severityFor(b.impact, b.likelihood));
+}
+
+/**
+ * A bug with new scores, its severity set to their band, and the change recorded.
+ * Refuses invalid scores, a change that changes nothing, and a change without a reason.
+ */
+export function rescore(bug: KnownBug, impact: number, likelihood: number, reason: string, by: string, on: string): KnownBug {
+  const to = severityFor(impact, likelihood);
+  if (impact === bug.impact && likelihood === bug.likelihood && to === bug.severity) throw new Error(`${bug.id} is already I${impact} × L${likelihood}, ${to}`);
   if (!reason.trim()) throw new Error('a severity change needs a reason');
-  return { ...bug, severity: to, rerated: [...(bug.rerated ?? []), { from: bug.severity, to, reason: reason.trim(), by, on }] };
+  const change: Rerating = { from: bug.severity, to, impact, likelihood, reason: reason.trim(), by, on };
+  return { ...bug, impact, likelihood, severity: to, rerated: [...(bug.rerated ?? []), change] };
 }
 
 export const KNOWN_BUGS_PATH = fileURLToPath(new URL('../known-bugs.json', import.meta.url));

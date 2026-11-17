@@ -6,7 +6,7 @@ import { classify } from './heuristic';
 import { validate } from './model';
 import { groupFailures, signature } from './collect';
 import { findCandidates, resource, searchBugs, titleSimilarity } from './duplicates';
-import { findBug, jiraKey, loadKnownBugs, rerate, type KnownBug } from '../src/known-bugs';
+import { findBug, isScore, jiraKey, loadKnownBugs, rescore, severityFor, severityMismatches, type KnownBug } from '../src/known-bugs';
 import type { Failure, FailureGroup } from './types';
 
 const failure = (over: Partial<Failure> = {}): Failure => ({
@@ -134,6 +134,8 @@ const bug = (over: Partial<KnownBug> = {}): KnownBug => ({
   jira: 'SHOP-214',
   title: 'Any signed-in user can read any basket by id',
   severity: 'critical',
+  impact: 5,
+  likelihood: 5,
   area: 'R1',
   tests: [MATRIX_KEY],
   endpoints: ['basket.get'],
@@ -225,23 +227,65 @@ test('a record type stops at the first id, or is the whole path without one', ()
   assert.notEqual(resource('/rest/user/change-password'), resource('/rest/user/authentication-details'));
 });
 
-test('re-rating records the old and new severity, the reason, and who', () => {
+test('severity is the band of impact × likelihood, at every boundary', () => {
+  // Arrange: [impact, likelihood, severity]. No two scores multiply to 11 or 19, so the reachable edges are 5|6, 10|12, 16|20.
+  const cases: [number, number, KnownBug['severity']][] = [
+    [1, 1, 'low'], [1, 5, 'low'], [2, 3, 'medium'], [2, 5, 'medium'],
+    [3, 4, 'high'], [4, 4, 'high'], [4, 5, 'critical'], [5, 5, 'critical'],
+  ];
+
+  // Act / Assert
+  for (const [i, l, sev] of cases) assert.equal(severityFor(i, l), sev, `I${i} × L${l}`);
+});
+
+test('a score is a whole number from 1 to 5; anything else is refused', () => {
+  for (const n of [1, 3, 5]) assert.ok(isScore(n), String(n));
+  for (const n of [0, 6, -1, 2.5, Number.NaN, '3', undefined, null]) assert.ok(!isScore(n), String(n));
+  assert.throws(() => severityFor(0, 5), /1–5/);
+  assert.throws(() => severityFor(3, 6), /1–5/);
+});
+
+test('a bug whose severity is not its score band, or has no scores, is a mismatch', () => {
+  // Arrange
+  const bugs = [
+    bug({ id: 'OK', impact: 4, likelihood: 3, severity: 'high' }),
+    bug({ id: 'WRONG', impact: 5, likelihood: 5, severity: 'high' }),
+    bug({ id: 'UNSCORED', impact: undefined as unknown as number, likelihood: undefined as unknown as number, severity: 'high' }),
+  ];
+
   // Act
-  const out = rerate(bug({ severity: 'high' }), 'critical', 'I5 × L5: every customer\'s record', 'Reviewer', '2026-11-17');
+  const ids = severityMismatches(bugs).map((b) => b.id);
+
+  // Assert
+  assert.deepEqual(ids, ['WRONG', 'UNSCORED']);
+});
+
+test('re-scoring sets the severity from the new scores and records the change', () => {
+  // Act
+  const out = rescore(bug({ severity: 'high', impact: 4, likelihood: 3 }), 5, 5, 'every customer\'s record', 'Reviewer', '2026-11-17');
 
   // Assert
   assert.equal(out.severity, 'critical');
-  assert.deepEqual(out.rerated, [{ from: 'high', to: 'critical', reason: 'I5 × L5: every customer\'s record', by: 'Reviewer', on: '2026-11-17' }]);
+  assert.deepEqual([out.impact, out.likelihood], [5, 5]);
+  assert.deepEqual(out.rerated, [{ from: 'high', to: 'critical', impact: 5, likelihood: 5, reason: 'every customer\'s record', by: 'Reviewer', on: '2026-11-17' }]);
 });
 
-test('a second re-rating keeps the first in the history', () => {
-  const once = rerate(bug({ severity: 'high' }), 'critical', 'first', 'A', '2026-11-17');
-  assert.deepEqual(rerate(once, 'medium', 'second', 'B', '2026-11-18').rerated?.map((r) => `${r.from}→${r.to}`), ['high→critical', 'critical→medium']);
+test('re-scoring to the same scores fixes a mismatched severity', () => {
+  const out = rescore(bug({ severity: 'high', impact: 5, likelihood: 5 }), 5, 5, 'matches I5 × L5 = 25', 'A', 'd');
+  assert.equal(out.severity, 'critical');
+  assert.deepEqual(severityMismatches([out]), []);
 });
 
-test('re-rating refuses no change and a blank reason', () => {
-  assert.throws(() => rerate(bug({ severity: 'high' }), 'high', 'same', 'A', 'd'), /already high/);
-  assert.throws(() => rerate(bug({ severity: 'high' }), 'low', '   ', 'A', 'd'), /needs a reason/);
+test('a second re-scoring keeps the first in the history', () => {
+  const once = rescore(bug({ severity: 'high', impact: 4, likelihood: 3 }), 5, 5, 'first', 'A', '2026-11-17');
+  assert.deepEqual(rescore(once, 2, 3, 'second', 'B', '2026-11-18').rerated?.map((r) => `${r.from}→${r.to}`), ['high→critical', 'critical→medium']);
+});
+
+test('re-scoring refuses no change, a blank reason, and invalid scores', () => {
+  const b = bug({ severity: 'high', impact: 4, likelihood: 3 });
+  assert.throws(() => rescore(b, 4, 3, 'same', 'A', 'd'), /already I4 × L3, high/);
+  assert.throws(() => rescore(b, 5, 5, '   ', 'A', 'd'), /needs a reason/);
+  assert.throws(() => rescore(b, 6, 5, 'too high', 'A', 'd'), /1–5/);
 });
 
 test('title search finds open bugs containing every word typed, in any case', () => {
@@ -288,7 +332,7 @@ test('title search also matches the Jira key', () => {
   assert.deepEqual(searchBugs('shop-221', bugs).map((b) => b.id), ['BUG-008']);
 });
 
-test('every approved bug has its own valid Jira key', () => {
+test('every approved bug has its own valid Jira key and valid scores', () => {
   // Arrange
   const bugs = loadKnownBugs();
 
@@ -297,5 +341,6 @@ test('every approved bug has its own valid Jira key', () => {
 
   // Assert
   for (const b of bugs) assert.ok(typeof b.jira === 'string' && jiraKey(b.jira) === b.jira, `${b.id} has no valid Jira key`);
+  for (const b of bugs) assert.ok(isScore(b.impact) && isScore(b.likelihood), `${b.id} has no valid impact and likelihood`);
   assert.equal(new Set(keys).size, keys.length, 'two bugs share a Jira key');
 });

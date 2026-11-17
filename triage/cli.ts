@@ -11,7 +11,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
-import { KNOWN_BUGS_PATH, findBug, jiraKey, loadKnownBugs, rerate, type KnownBug } from '../src/known-bugs';
+import { KNOWN_BUGS_PATH, findBug, isScore, jiraKey, loadKnownBugs, rescore, severityFor, severityMismatches, type KnownBug } from '../src/known-bugs';
 import { endpoint as catalogEndpoint } from '../src/catalog';
 import { collectFailures, groupFailures } from './collect';
 import { classify } from './heuristic';
@@ -106,8 +106,8 @@ function show(group: FailureGroup, p: Proposal, index: number, total: number): v
   console.log(`  evidence:  ${p.evidence}`);
   console.log(`  why:       ${p.reasoning}`);
   if (p.suggestedTitle) console.log(`  bug title: ${p.suggestedTitle}`);
-  // Severity is the risk rating, from the risk area's rank; the likely cause is what broke.
-  if (p.suggestedSeverity) console.log(`  severity:  ${p.suggestedSeverity} (risk area ${areaOf(f)})`);
+  // The risk area's rank is a starting point; the reviewer's impact × likelihood scores set the severity.
+  if (p.suggestedSeverity) console.log(`  severity:  ${p.suggestedSeverity} for risk area ${areaOf(f)}; your impact × likelihood scores decide`);
 }
 
 /**
@@ -123,7 +123,12 @@ async function review(): Promise<void> {
   const pending = run.proposals.filter((p) => !decided.has(p.groupId));
   const who = reviewer();
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  legend(who, pending.length);
+  if (!(await severityCheck(rl, who))) {
+    rl.close();
+    return;
+  }
+  if (!pending.length) console.log('No new failure groups to review.');
+  else legend(who, pending.length);
 
   for (const [i, p] of pending.entries()) {
     const group = run.groups.find((g) => g.id === p.groupId)!;
@@ -169,23 +174,28 @@ async function review(): Promise<void> {
         decision.bugId = bug.id;
       } else if (jira) {
         const title = (await rl.question(`  bug title [${p.suggestedTitle ?? group.failures[0].title}]: `)).trim() || p.suggestedTitle || group.failures[0].title;
-        const severity = await askSeverity(rl, p.suggestedSeverity ?? 'medium');
+        const impact = await askScore(rl, 'impact');
+        const likelihood = await askScore(rl, 'likelihood');
+        const severity = severityFor(impact, likelihood);
+        console.log(`  severity:  ${severity} (I${impact} × L${likelihood} = ${impact * likelihood})`);
         const created: KnownBug = {
           id: nextBugId(bugs),
           jira,
           title,
           severity,
+          impact,
+          likelihood,
           area: areaOf(group.failures[0]),
           tests: keys,
           endpoints,
           approvedBy: who,
-          approvedOn: new Date().toISOString().slice(0, 10),
+          approvedOn: today(),
         };
         bugs.push(created);
         decision.bugId = created.id;
         decision.title = title;
       }
-      writeFileSync(KNOWN_BUGS_PATH, `${JSON.stringify({ bugs }, null, 2)}\n`);
+      save(bugs);
       console.log(`  recorded as ${decision.bugId}`);
     }
     appendFileSync(DECISIONS, `${JSON.stringify(decision)}\n`);
@@ -232,54 +242,94 @@ async function askJira(rl: ReturnType<typeof createInterface>): Promise<string> 
   }
 }
 
-const SEVERITIES: readonly KnownBug['severity'][] = ['critical', 'high', 'medium', 'low'];
+const SCORE_HELP = {
+  impact: 'harm to customers, money, or the business; 5 = every customer\'s data or money',
+  likelihood: 'how easily it is hit; 5 = a plain request, 3 = needs a specific condition, 1 = unlikely',
+} as const;
 
-/**
- * The suggestion comes from the risk area; the reviewer rates the finding itself.
- * Enter keeps the suggestion; a number or name picks another; anything else asks again.
- */
-async function askSeverity(rl: ReturnType<typeof createInterface>, suggested: KnownBug['severity']): Promise<KnownBug['severity']> {
-  const options = SEVERITIES.map((s, n) => `${n + 1} ${s}`).join('  ');
+/** A 1–5 score. Enter keeps `current` when there is one; anything else asks again. */
+async function askScore(rl: ReturnType<typeof createInterface>, kind: keyof typeof SCORE_HELP, current?: number): Promise<number> {
   for (;;) {
-    const raw = (await rl.question(`  severity (${options}) [${suggested}]: `)).trim().toLowerCase();
-    if (!raw) return suggested;
-    const picked = SEVERITIES[Number(raw) - 1] ?? SEVERITIES.find((s) => s === raw);
-    if (picked) return picked;
-    console.log('  not one of the severities listed');
+    const raw = (await rl.question(`  ${kind} 1–5 (${SCORE_HELP[kind]})${current ? ` [${current}]` : ''}: `)).trim();
+    if (!raw && current) return current;
+    const n = Number(raw);
+    if (raw && isScore(n)) return n;
+    console.log('  a whole number from 1 to 5');
   }
 }
 
+const today = (): string => new Date().toISOString().slice(0, 10);
+
+function save(bugs: KnownBug[]): void {
+  writeFileSync(KNOWN_BUGS_PATH, `${JSON.stringify({ bugs }, null, 2)}\n`);
+}
+
+/** New scores for one bug, with a reason; the severity follows. Returns false if nothing was changed. */
+async function changeScores(rl: ReturnType<typeof createInterface>, bug: KnownBug, who: string): Promise<boolean> {
+  const impact = await askScore(rl, 'impact', isScore(bug.impact) ? bug.impact : undefined);
+  const likelihood = await askScore(rl, 'likelihood', isScore(bug.likelihood) ? bug.likelihood : undefined);
+  const to = severityFor(impact, likelihood);
+  if (impact === bug.impact && likelihood === bug.likelihood && to === bug.severity) {
+    console.log('  unchanged');
+    return false;
+  }
+  console.log(`  I${impact} × L${likelihood} = ${impact * likelihood} → ${to}`);
+  const reason = (await rl.question('  why? ')).trim();
+  if (!reason) {
+    console.log('  a change needs a reason; left unchanged');
+    return false;
+  }
+  const bugs = loadKnownBugs();
+  save(bugs.map((b) => (b.id === bug.id ? rescore(b, impact, likelihood, reason, who, today()) : b)));
+  console.log(to === bug.severity ? `  ${bug.id}: scores recorded, still ${to}` : `  ${bug.id}: ${bug.severity} → ${to}`);
+  return true;
+}
+
 /**
- * Re-rates open bugs: severity is a review decision, so it gets a name, date, and reason like the others.
+ * Runs before the groups: every bug's severity must be the band of its impact × likelihood.
+ * A mismatch fails `yarn all`, so it can't be missed. Returns false if the reviewer quits.
+ */
+async function severityCheck(rl: ReturnType<typeof createInterface>, who: string): Promise<boolean> {
+  const mismatched = severityMismatches(loadKnownBugs());
+  if (!mismatched.length) return true;
+  console.log(`Severity check: ${mismatched.length} open bug(s) whose severity doesn't match impact × likelihood (20+ critical, 12+ high, 6+ medium).`);
+  console.log('Answers: [Enter] set the severity the scores give  [s] change the scores  [l] later (the run stays red)  [q] quit');
+  for (const bug of mismatched) {
+    const scored = isScore(bug.impact) && isScore(bug.likelihood);
+    const band = scored ? severityFor(bug.impact, bug.likelihood) : undefined;
+    console.log(`\n  ${bug.id} ${bug.jira}  ${bug.title}`);
+    console.log(scored ? `  registered ${bug.severity}; I${bug.impact} × L${bug.likelihood} = ${bug.impact * bug.likelihood} → ${band}` : `  registered ${bug.severity}; no valid scores yet`);
+    const answer = (await rl.question('  > ')).trim().toLowerCase();
+    if (answer === 'q') return false;
+    if (answer !== '' && answer !== 's') continue;
+    if (answer === '' && band) {
+      const bugs = loadKnownBugs();
+      save(bugs.map((b) => (b.id === bug.id ? rescore(b, bug.impact, bug.likelihood, `matches I${bug.impact} × L${bug.likelihood} = ${bug.impact * bug.likelihood}`, who, today()) : b)));
+      console.log(`  ${bug.id}: ${bug.severity} → ${band}`);
+    } else await changeScores(rl, bug, who);
+  }
+  console.log('');
+  return true;
+}
+
+/**
+ * Re-scores open bugs: severity is a review decision, so it gets a name, date, and reason like the others.
  * Recorded on the bug itself, not in decisions.jsonl, so triage agreement measures stay about triage.
  */
 async function rate(): Promise<void> {
   const who = reviewer();
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  console.log(`Re-rating open bugs as ${who}. Enter a bug id or Jira key, or Enter alone to finish.`);
+  console.log(`Re-scoring open bugs as ${who}. Severity follows impact × likelihood. Enter a bug id or Jira key, or Enter alone to finish.`);
   for (;;) {
-    const bugs = loadKnownBugs();
     const id = (await rl.question('\n  bug id or Jira key: ')).trim();
     if (!id) break;
-    const bug = findBug(bugs, id);
+    const bug = findBug(loadKnownBugs(), id);
     if (!bug) {
       console.log(`  no open bug ${id}`);
       continue;
     }
-    console.log(`  ${bug.id} (${bug.jira}) [${bug.severity}, ${bug.area}] ${bug.title}`);
-    const to = await askSeverity(rl, bug.severity);
-    if (to === bug.severity) {
-      console.log('  unchanged');
-      continue;
-    }
-    const reason = (await rl.question('  why (impact × likelihood, or what changed)? ')).trim();
-    if (!reason) {
-      console.log('  a severity change needs a reason; left unchanged');
-      continue;
-    }
-    const updated = rerate(bug, to, reason, who, new Date().toISOString().slice(0, 10));
-    writeFileSync(KNOWN_BUGS_PATH, `${JSON.stringify({ bugs: bugs.map((b) => (b.id === bug.id ? updated : b)) }, null, 2)}\n`);
-    console.log(`  ${bug.id}: ${bug.severity} → ${to}`);
+    console.log(`  ${bug.id} (${bug.jira}) [${bug.severity}, I${bug.impact} × L${bug.likelihood}, ${bug.area}] ${bug.title}`);
+    await changeScores(rl, bug, who);
   }
   rl.close();
 }
