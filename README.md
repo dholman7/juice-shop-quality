@@ -5,8 +5,8 @@ Playwright + TypeScript suite for the top 3 risks in the case-study strategy, pl
 | | |
 |:--|:--|
 | Risk areas covered | R1 Customer data isolation · R2 Checkout and payment · R3 Login and account security |
-| REST endpoints in those areas | 68; 64 called as every role (anonymous, customer, deluxe, accounting, admin), 4 skip a role for a [stated reason](#coverage-map) |
-| Tests | 527 (487 API, 40 UI) in about 55 seconds, against 38 minutes for the old 60-test UI suite |
+| REST endpoints in those areas | 68; 66 called as every role (anonymous, customer, deluxe, accounting, admin), 2 skip staff roles for a [stated reason](#coverage-map) |
+| Tests | 530 (490 API, 40 UI) in about a minute, against 38 minutes for the old 60-test UI suite |
 | Extra piece (step 2) | Failure-triage agent with a human review gate |
 | Latest report | [dholman7.github.io/juice-shop-quality](https://dholman7.github.io/juice-shop-quality/), published by CI from `main` and nightly |
 
@@ -59,12 +59,11 @@ Full grid: [`docs/coverage.md`](docs/coverage.md), regenerated each run from tes
 |:--|--:|:--|:--|
 | R1 Customer data isolation | 24 | Role matrix; cross-customer isolation for baskets, items, addresses, cards, user records; lists only show own records; basket limits and stock; address and card validation; card masking; data export | Basket quantity and remove (customer, deluxe); save address and card (all signed-in roles); order history; admin page (admin sees users, others refused) |
 | R2 Checkout and payment | 21 | Role matrix; checkout totals (list and deluxe price, delivery); basket emptied; stock reduced; empty or incomplete orders refused; coupons; wallet top-up and payment; deluxe purchase; accounting order list and delivery status; product price changes | Checkout with card (customer, deluxe); deluxe price shown; coupon valid and invalid; wallet top-up; buy deluxe; track order (anonymous, customer); accounting marks delivered; no accounting page for other roles |
-| R3 Login and account security | 23 | Role matrix; sign-up rules; login errors, SQL injection, rate limit, unsigned tokens; password hash never returned; 2FA setup, login, wrong code, disable; password change and reset; security answers | Register; log in (every role); wrong password; log out; change password (customer, deluxe); forgot password; 2FA setup and 2FA login |
+| R3 Login and account security | 23 | Role matrix; sign-up rules; login errors, SQL injection, rate limit, unsigned tokens; password hash never returned; 2FA setup, login, wrong code, disable; passkey sign-in, wrong-key signature, credential hijack (software authenticator); password change and reset; security answers | Register; log in (every role); wrong password; log out; change password (customer, deluxe); forgot password; 2FA setup and 2FA login |
 
 Not run, with the reason recorded in the catalog note:
 
-- **2FA setup and disable as staff:** turning on 2FA for the shared staff seed accounts would lock other tests out.
-- **Successful passkey ceremonies:** need a real authenticator. A forged assertion is tested instead.
+- **2FA setup and disable as staff:** later tests on the same worker sign in with that staff account, and 2FA would lock them out. A dedicated staff account per 2FA test would close this.
 - **Stock updates:** limited to an office IP allow-list, so every caller from a test machine is refused.
 
 ## What the suite found
@@ -91,6 +90,8 @@ Each item below is a failing test today. Severity follows the area's risk rank.
 | R3 | SQL injection in the login email logs in as admin | Critical |
 | R3 | Sign-up accepts `role: admin` | Critical |
 | R3 | Unsigned session tokens (`alg: none`) are accepted | Critical |
+| R3 | Passkey sign-in ignores the signature: anyone with a credential id signs in as its owner | Critical |
+| R3 | Registering a credential id that belongs to another account replaces its key, taking over that passkey | Critical |
 | R3 | The password hash is in the session token and in three API responses | High |
 | R3 | Changing the password does not require the current one | High |
 | R3 | No rate limit on wrong passwords | Medium |
@@ -101,7 +102,7 @@ Each item below is a failing test today. Severity follows the area's risk rank.
 
 The brief's numbers point at triage. The old suite failed 1 run in 5 for no clear reason, so the team ignored it. A suite that finds 73 failures on its first run is ignored just as fast unless someone sorts them. Sorting is the job testers do by hand today, and it is where their time goes.
 
-The agent turns 73 failing tests into 39 groups, each with a proposed cause (product bug, test bug, environment, flaky, or needs a person) and a quote from the failure as evidence. A tester reviews groups, not tests.
+The agent turns 75 failing tests into 41 groups, each with a proposed cause (product bug, test bug, environment, flaky, or needs a person) and a quote from the failure as evidence. A tester reviews groups, not tests.
 
 The authorization checks the brief also lists come with the functional suite, since basket access is risk #1. A ZAP scan or k6 script would add less in this repo: ZAP finds generic issues that the targeted tests already cover, and load numbers from one laptop do not predict a sales event. Both are in the strategy as next steps.
 
@@ -116,7 +117,7 @@ How it works ([`triage/`](triage)):
 5. [`model.ts`](triage/model.ts) validates every model answer: the evidence must be a verbatim quote from the failure text, and "flaky" requires a retry that passed. If either check fails, the answer drops to `needs-human`. The model never gets the final say.
 6. `yarn triage:review` shows each group to a person: accept, change category, reject, or skip. Only accepted product bugs reach `known-bugs.json`, with the reviewer's name and date. Every decision is logged in `triage/decisions.jsonl`.
 
-**First real run, Claude (Haiku) against the rules on the same 39 groups:**
+**First real run (73 failures, 39 groups), Claude (Haiku) against the rules on the same groups:**
 
 - They agreed on 31.
 - Claude sent the other 8 to a person. All 8 are business-rule expectations, such as "an empty basket can't be checked out" or "a quantity of 0 is refused", which the failure text alone cannot prove. That is the caution the prompt asks for, and it shows where a tester's judgment is needed.
@@ -132,7 +133,9 @@ Built with Claude Code. Most of the AI's mistakes surfaced the same way: run the
 |:--|:--|:--|
 | Deluxe test fixture that used the token returned by the upgrade call | That token has no basket id, so every deluxe basket call failed with 401. It looked like 15 product bugs. | Fixture logs in again after upgrading. Kept a separate test for the token problem, which is a real bug. |
 | Staff tests using the shared admin and accounting seed accounts | Parallel tests collided: duplicate basket items (500s) and one test's checkout emptying another's basket. That is the old suite's flakiness, recreated. | Seeded one admin and one accounting account per worker at container start. |
-| Expected `400` from a malformed passkey verify call | WebAuthn verify returns 401 for any failed ceremony by design. That was not a bug. | Dropped the expectation; documented the gap. |
+| Expected `400` from a malformed passkey verify call, and "any failed ceremony returns 401 by design" | Half true: 401 only for an unknown credential. Reading the route source showed a bad signature on a real credential still signs in. | Tested with a software authenticator instead of guessing (below). |
+| Passkey verify skipped for 9 role checks: "needs a real authenticator" | I rejected the skip. A software authenticator (real key pair, real signatures; only the hardware is simulated) runs Juice Shop's own verification. | All 30 passkey role checks run; it found two critical bugs (sign-in without a valid signature, credential hijack). Unit tests check its signatures with Node's crypto, independent of Juice Shop. |
+| Forged passkey test sent its payload as `response` | The route reads `assertion`, so the request was refused before any passkey check. The test passed and tested nothing. | Sends a real assertion; separate tests for unknown credential, wrong key, and hijack. |
 | A test that a "99% off" coupon is refused | It encoded a business rule nobody gave us. | Removed it; reported coupon forgery as a finding instead. |
 | Data export probe that sent no CAPTCHA and passed | It passed only because of a bug (the CAPTCHA is skipped if never requested). | Probe now follows the real page flow; the bypass is its own failing test. |
 | Address UI test that opened the form URL directly | The form goes "back" after saving, which left the app. Not a product bug. | Test starts from the saved-address list, as a customer does. |
@@ -141,7 +144,7 @@ Built with Claude Code. Most of the AI's mistakes surfaced the same way: run the
 | Admin UI test asserting `email.toContain('@test.local')` | A check on test data, not the page. It could never fail. | Replaced with a check that the page lists customers. |
 | Triage evidence quoting only `Expected: 400` | Not enough for a reviewer to decide. | Evidence now quotes the expected and received pair. |
 | A model triage answer with the reasoning "Placeholder; to be replaced after reading the test source." | The answer was unfinished, and the validation let it through. | Validation rejects unfinished reasoning; a unit test uses that exact answer. |
-| Report's by-area table, which read the risk area from test titles | UI test titles don't name an area, so all 40 UI tests were silently missing from it. Found by a review pass over the code. | Falls back to the area of the endpoint the test covers; all 527 tests now counted. |
+| Report's by-area table, which read the risk area from test titles | UI test titles don't name an area, so all 40 UI tests were silently missing from it. Found by a review pass over the code. | Falls back to the area of the endpoint the test covers; every test is now counted. |
 
 ## Secrets
 
@@ -155,7 +158,7 @@ In a shared pipeline:
 
 ## Next steps
 
-- Review the 39 proposed groups with the testers and fill `known-bugs.json`, so CI goes green on known bugs and red on new ones.
+- Review the 41 proposed groups with the testers and fill `known-bugs.json`, so CI goes green on known bugs and red on new ones.
 - **Evaluate triage against labeled failures.** Reviewed decisions plus deliberately broken tests, outages, and planted races give known causes. Score accuracy per category, product-bug precision, and confident-but-wrong answers with confidence intervals, on a frozen held-out split, replayed keyless in CI. Same method as [agent-eval-gate](https://github.com/dholman7/agent-eval-gate).
 - Add the other step-2 options as separate jobs: an OWASP ZAP baseline scan, and k6 checkout load tests with pass/fail thresholds in a production-like environment.
 - Extend the catalog to the next risk areas: file upload and complaints, product reviews, and admin functions.

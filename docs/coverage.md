@@ -82,9 +82,9 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 | `POST /rest/2fa/verify` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 8 |
 | `POST /rest/2fa/disable` <sup title="Not run as admin or accounting, for the same reason as setup.">note</sup> | ✗ pass | ✓ pass | ✓ pass | ✓ skip | ✓ skip | 6 |
 | `GET /rest/passkey/register-options` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
-| `POST /rest/passkey/register-verify` <sup title="A successful ceremony needs a real authenticator, and any failed one returns 401, so only the anonymous refusal is checked here.">note</sup> | ✗ pass | ✓ skip | ✓ skip | ✓ skip | ✓ skip | 5 |
+| `POST /rest/passkey/register-verify` <sup title="Signed by a software authenticator (src/passkey.ts): real keys and signatures, verified by Juice Shop; only the hardware is simulated.">note</sup> | ✗ pass | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | 6 |
 | `POST /rest/passkey/login-options` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
-| `POST /rest/passkey/login-verify` <sup title="Needs a real authenticator to succeed; tests/api/auth.spec.ts checks that a forged assertion is rejected.">note</sup> | ✓ skip | ✓ skip | ✓ skip | ✓ skip | ✓ skip | 6 |
+| `POST /rest/passkey/login-verify` <sup title="Signed by a software authenticator (src/passkey.ts); tests/api/auth.spec.ts covers bad signatures and credential hijacking.">note</sup> | ✓ **FAIL** | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 8 |
 | `GET /rest/passkey/credentials` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 | `DELETE /rest/passkey/credentials/:id` | ✗ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | 5 |
 
@@ -94,8 +94,8 @@ In the "should" column, `✓` means the role may call the endpoint and `✗` mea
 - `POST /api/SecurityAnswers`: Called once by the sign-up page right after registration.
 - `POST /rest/2fa/setup`: Not run as admin or accounting: later tests on the same worker sign in with that QA staff account, and turning on 2FA would lock them out.
 - `POST /rest/2fa/disable`: Not run as admin or accounting, for the same reason as setup.
-- `POST /rest/passkey/register-verify`: A successful ceremony needs a real authenticator, and any failed one returns 401, so only the anonymous refusal is checked here.
-- `POST /rest/passkey/login-verify`: Needs a real authenticator to succeed; tests/api/auth.spec.ts checks that a forged assertion is rejected.
+- `POST /rest/passkey/register-verify`: Signed by a software authenticator (src/passkey.ts): real keys and signatures, verified by Juice Shop; only the hardware is simulated.
+- `POST /rest/passkey/login-verify`: Signed by a software authenticator (src/passkey.ts); tests/api/auth.spec.ts covers bad signatures and credential hijacking.
 
 ## UI flows
 

@@ -9,6 +9,7 @@ import { Api, SECURITY_ANSWER, VALID_ADDRESS, VALID_CARD, addAddress, addCard, a
 import type { Role } from './config';
 import { qaStaff } from './staff';
 import { coupon, customerWith2fa, freshTotp, readyToCheckout } from './shop';
+import { registerPasskey, registrationBody, signInBody } from './passkey';
 
 /** The request to send, and which statuses count as success or refusal for this endpoint. */
 export interface Probe {
@@ -205,9 +206,14 @@ export const PROBES: Record<string, Builder> = {
   },
   '2fa.disable': async (c) => ({ path: '/rest/2fa/disable', data: { password: c.caller.account?.password ?? 'x' }, ok: [200] }),
   'passkey.registerOptions': async () => ({ path: '/rest/passkey/register-options', ok: [200] }),
-  'passkey.registerVerify': async () => ({ path: '/rest/passkey/register-verify', data: {}, ok: [200] }),
+  // A real registration from the software authenticator; anonymous sends a throwaway customer's challenge.
+  'passkey.registerVerify': async (c) => ({ path: '/rest/passkey/register-verify', data: await registrationBody(await c.owner()), ok: [200] }),
   'passkey.loginOptions': async () => ({ path: '/rest/passkey/login-options', data: {}, ok: [200] }),
-  'passkey.loginVerify': async () => ({ path: '/rest/passkey/login-verify', data: {}, ok: [200] }),
+  // Public: a throwaway customer's real passkey signs a fresh challenge, and any caller may submit it.
+  'passkey.loginVerify': async (c) => {
+    const owner = await throwaway(c);
+    return { path: '/rest/passkey/login-verify', data: await signInBody(owner, await registerPasskey(owner)), ok: [200] };
+  },
   'passkey.credentials': async () => ({ path: '/rest/passkey/credentials', ok: [200] }),
   // No credential exists; 404 still proves an allowed caller got past the access check.
   'passkey.deleteCredential': async () => ({ path: '/rest/passkey/credentials/qa-missing', ok: [204, 404] }),
@@ -215,12 +221,9 @@ export const PROBES: Record<string, Builder> = {
 
 /**
  * Role checks deliberately not run; each catalog note says why. 2FA on a staff account would lock out
- * the later tests on that worker that sign in with it. Passkey verify needs a real authenticator,
- * and Juice Shop answers any failed ceremony with 401 by design, so success can't be shown.
+ * the later tests on that worker that sign in with it.
  */
 export const SKIP: Record<string, Role[]> = {
   '2fa.setup': ['accounting', 'admin'],
   '2fa.disable': ['accounting', 'admin'],
-  'passkey.registerVerify': ['customer', 'deluxe', 'accounting', 'admin'],
-  'passkey.loginVerify': ['anonymous', 'customer', 'deluxe', 'accounting', 'admin'],
 };

@@ -1,7 +1,8 @@
 /** R3 behavior: sign-up, login, 2FA, and password changes keep accounts safe. */
 import { test, expect, covers } from '../../src/fixtures';
-import { Api, SECURITY_ANSWER, login, register, uniqueEmail } from '../../src/api';
+import { Api, SECURITY_ANSWER, login, newCustomer, register, uniqueEmail } from '../../src/api';
 import { customerWith2fa, freshTotp, loginWith2fa } from '../../src/shop';
+import { SoftwarePasskey, registerPasskey, registrationBody, signInBody } from '../../src/passkey';
 
 const PASSWORD = 'Valid-Passw0rd!';
 const signUp = (email: string, extra: Record<string, unknown> = {}) => ({
@@ -134,15 +135,54 @@ test.describe('R3 login', () => {
     expect(await res.json()).not.toHaveProperty('password');
   });
 
-  test('a forged passkey assertion is rejected', covers('passkey.loginVerify', 'anonymous'), async ({ anonymous }) => {
+});
+
+// Passkeys, signed by a software authenticator (src/passkey.ts) so Juice Shop's own verification runs.
+test.describe('R3 passkeys', () => {
+  test('a customer signs in with their registered passkey', covers('passkey.loginVerify', 'customer'), async ({ customer, anonymous }) => {
     // Arrange
-    const { authToken } = await (await anonymous.post('/rest/passkey/login-options', {})).json();
+    const passkey = await registerPasskey(customer);
 
     // Act
-    const res = await anonymous.post('/rest/passkey/login-verify', { authToken, response: { id: 'forged', rawId: 'forged', type: 'public-key', response: {} } });
+    const res = await anonymous.post('/rest/passkey/login-verify', await signInBody(anonymous, passkey));
 
     // Assert
-    expect([400, 401]).toContain(res.status());
+    expect(res.status()).toBe(200);
+    expect((await res.json()).authentication.umail).toBe(customer.account!.email);
+  });
+
+  test('a passkey nobody registered is refused', covers('passkey.loginVerify', 'anonymous'), async ({ anonymous }) => {
+    // Act
+    const res = await anonymous.post('/rest/passkey/login-verify', await signInBody(anonymous, new SoftwarePasskey()));
+
+    // Assert
+    expect(res.status()).toBe(401);
+  });
+
+  // Account takeover: credential ids are not secret, so the signature is the only proof of the key.
+  test('a sign-in signed by the wrong key is refused', covers('passkey.loginVerify', 'anonymous'), async ({ customer, anonymous }) => {
+    // Arrange
+    const victims = await registerPasskey(customer);
+
+    // Act
+    const res = await anonymous.post('/rest/passkey/login-verify', await signInBody(anonymous, victims, 'another key'));
+
+    // Assert
+    expect(res.status(), `login-verify with a bad signature for ${customer.account!.email}'s passkey returned ${res.status()}`).toBe(401);
+  });
+
+  // WebAuthn says a credential id registered to one account must not be registered again by another.
+  test("another customer's credential id cannot be registered again", covers('passkey.registerVerify', 'customer'), async ({ customer, request }) => {
+    // Arrange
+    const victims = await registerPasskey(customer);
+    const attacker = new Api(request, await newCustomer(request));
+    const sameId = new SoftwarePasskey(victims.rawId);
+
+    // Act
+    const res = await attacker.post('/rest/passkey/register-verify', await registrationBody(attacker, sameId));
+
+    // Assert
+    expect(res.ok(), `re-registering another account's credential id returned ${res.status()}`).toBe(false);
   });
 });
 

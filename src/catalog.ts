@@ -114,10 +114,10 @@ export const ENDPOINTS: Endpoint[] = [
     note: 'Not run as admin or accounting, for the same reason as setup.' },
   { id: 'passkey.registerOptions', area: 'R3', method: 'GET', path: '/rest/passkey/register-options', access: 'authenticated' },
   { id: 'passkey.registerVerify', area: 'R3', method: 'POST', path: '/rest/passkey/register-verify', access: 'authenticated',
-    note: 'A successful ceremony needs a real authenticator, and any failed one returns 401, so only the anonymous refusal is checked here.' },
+    note: 'Signed by a software authenticator (src/passkey.ts): real keys and signatures, verified by Juice Shop; only the hardware is simulated.' },
   { id: 'passkey.loginOptions', area: 'R3', method: 'POST', path: '/rest/passkey/login-options', access: 'public' },
   { id: 'passkey.loginVerify', area: 'R3', method: 'POST', path: '/rest/passkey/login-verify', access: 'public',
-    note: 'Needs a real authenticator to succeed; tests/api/auth.spec.ts checks that a forged assertion is rejected.' },
+    note: 'Signed by a software authenticator (src/passkey.ts); tests/api/auth.spec.ts covers bad signatures and credential hijacking.' },
   { id: 'passkey.credentials', area: 'R3', method: 'GET', path: '/rest/passkey/credentials', access: 'authenticated' },
   { id: 'passkey.deleteCredential', area: 'R3', method: 'DELETE', path: '/rest/passkey/credentials/:id', access: 'authenticated' },
 ];
