@@ -86,12 +86,13 @@ Each item below is a failing test today, unless noted. Severity is impact × lik
 |:--|:--|:--|
 | R1 | Any signed-in user can read any customer's basket by id (`GET /rest/basket/:id`). This is the production incident. | Critical |
 | R1 | Any signed-in user can list, read, change, and delete other customers' basket items | Critical |
-| R1 | Sending `BasketId` twice adds items to another customer's basket | Critical |
+| R1 | Sending `BasketId` twice adds items to another customer's basket | High |
 | R1 | Updating another customer's address succeeds and moves it to the caller's account | Critical |
-| R1 | Any signed-in user can read any user record and the full user list, including login details | High |
+| R1 | Any signed-in user can read any user record and the full user list, including login details | Critical |
 | R1 | Saving a card echoes the full card number | High |
 | R1 | Zero and negative quantities are accepted, producing negative order totals | High |
 | R1 | The data export CAPTCHA returns its own answer, and is skipped if never requested | Medium |
+| R1 | An address with no name is accepted | Low |
 | R2 | Anyone, even without logging in, can change a product's price | Critical |
 | R2 | Any signed-in user can apply a coupon to, or check out, another customer's basket | Critical |
 | R2 | Non-admins can create products | High |
@@ -106,7 +107,7 @@ Each item below is a failing test today, unless noted. Severity is impact × lik
 | R3 | Registering a credential id that belongs to another account replaces its key, taking over that passkey | Critical |
 | R3 | The password hash is in the session token and in three API responses | High |
 | R3 | Changing the password does not require the current one | High |
-| R3 | No rate limit on wrong passwords | Medium |
+| R3 | No rate limit on wrong passwords | High |
 | R3 | Sign-up accepts mismatched passwords; some unauthenticated calls return 500 instead of 401 | Low |
 | R3 | The 2FA settings page sends "Save" without its setup token if clicked before the QR code loads (found while chasing a flaky test; not a test) | Low |
 
