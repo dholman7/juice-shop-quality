@@ -7,6 +7,7 @@ import { AREAS, ENDPOINTS, allows, type Area } from '../src/catalog';
 import { ROLES } from '../src/config';
 import { readRows, type Row } from './results';
 
+/** How each result is written in a cell. */
 const MARK: Record<Row['result'], string> = {
   passed: 'pass',
   failed: '**FAIL**',
@@ -26,6 +27,7 @@ export function coverageMarkdown(rows: Row[]): string {
     'In the "should" column, `✓` means the role may call the endpoint and `✗` means it must be refused; both are tested.',
     '',
   ];
+  // Worst first: a cell shows the worst result among all tests for that endpoint and role.
   const rank: Row['result'][] = ['failed', 'fixed', 'flaky', 'known-bug', 'skipped', 'passed'];
   for (const area of Object.keys(AREAS) as Area[]) {
     lines.push(`## ${area} ${AREAS[area]}`, '', `| Endpoint | ${ROLES.join(' | ')} | Tests |`, `|:--|${ROLES.map(() => ':-:').join('|')}|--:|`);

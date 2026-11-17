@@ -6,6 +6,7 @@
  */
 import type { Role } from './config';
 
+/** The top 3 risk areas from the strategy's ranking. */
 export type Area = 'R1' | 'R2' | 'R3';
 
 export const AREAS: Record<Area, string> = {
@@ -24,6 +25,7 @@ export const AREAS: Record<Area, string> = {
 export type Access = 'public' | 'authenticated' | 'owner' | 'nobody' | Role[];
 
 export interface Endpoint {
+  /** Stable name used by probes, test annotations, the coverage map, and triage. */
   id: string;
   area: Area;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -35,6 +37,7 @@ export interface Endpoint {
   note?: string;
 }
 
+// Adding an endpoint here adds an access test for every role; it also needs a probe in src/probes.ts.
 export const ENDPOINTS: Endpoint[] = [
   // R1 Customer data isolation
   { id: 'basket.get', area: 'R1', method: 'GET', path: '/rest/basket/:id', access: 'owner' },
@@ -119,6 +122,10 @@ export const ENDPOINTS: Endpoint[] = [
   { id: 'passkey.deleteCredential', area: 'R3', method: 'DELETE', path: '/rest/passkey/credentials/:id', access: 'authenticated' },
 ];
 
+/**
+ * Whether the policy lets this role call the endpoint on its own records. "owner" counts as
+ * any signed-in role here; access to someone else's record is checked in isolation.spec.ts.
+ */
 export function allows(endpoint: Endpoint, role: Role): boolean {
   const { access } = endpoint;
   if (access === 'public') return true;
@@ -127,6 +134,7 @@ export function allows(endpoint: Endpoint, role: Role): boolean {
   return access.includes(role);
 }
 
+/** Looks up an endpoint by id; throws on a typo instead of silently testing nothing. */
 export const endpoint = (id: string): Endpoint => {
   const found = ENDPOINTS.find((e) => e.id === id);
   if (!found) throw new Error(`unknown endpoint id ${id}`);

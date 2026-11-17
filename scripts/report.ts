@@ -13,6 +13,7 @@ import type { Decision } from '../triage/types';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
+/** The risk area (R1/R2/R3) named in the test's titles, for the by-area table. UI test titles don't name one, so they aren't counted there. */
 function areaOf(r: Row): Area | undefined {
   const m = r.key.match(/\b(R[123])\b/);
   return m ? (m[1] as Area) : undefined;
@@ -75,6 +76,7 @@ function historyWithCurrent(): RunSummary[] {
   return [...readHistory().filter((r) => r.at !== now.at), now].sort((a, b) => a.at.localeCompare(b.at));
 }
 
+/** The whole page as one HTML string: no framework, no external assets, so it opens from disk or Pages. */
 export function buildReport(history: RunSummary[] = historyWithCurrent()): string {
   const { rows, stats } = readRows();
   const count = (res: Row['result']) => rows.filter((r) => r.result === res).length;

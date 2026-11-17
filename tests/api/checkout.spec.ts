@@ -3,6 +3,7 @@ import { test, expect, covers, newDeluxe, staff } from '../../src/fixtures';
 import { addCard, addToBasket } from '../../src/api';
 import { basket, checkout, coupon, readyToCheckout } from '../../src/shop';
 
+// Round to cents so floating-point sums compare cleanly.
 const money = (n: number) => Math.round(n * 100) / 100;
 
 async function product(api: import('../../src/api').Api, id: number) {
@@ -18,6 +19,7 @@ async function lastOrder(api: import('../../src/api').Api) {
   return orders.at(-1);
 }
 
+// The revenue path: the right total, the order recorded, stock reduced, invalid orders refused.
 test.describe('R2 checkout', () => {
   test('charges list price times quantity plus delivery', covers('basket.checkout', 'customer'), async ({ customer }) => {
     // Arrange
@@ -123,6 +125,7 @@ test.describe('R2 checkout', () => {
   });
 });
 
+// Discounts: only a valid, current coupon changes the total.
 test.describe('R2 coupons', () => {
   test('applies this month\'s coupon to the order total', covers('basket.coupon', 'customer'), async ({ customer }) => {
     // Arrange
@@ -161,6 +164,7 @@ test.describe('R2 coupons', () => {
   });
 });
 
+// Stored value: top-ups only from the customer's own card, and no paying with money that isn't there.
 test.describe('R2 wallet', () => {
   test('tops up the wallet from a saved card', covers('wallet.topUp', 'customer'), async ({ customer }) => {
     // Arrange
@@ -226,6 +230,7 @@ test.describe('R2 wallet', () => {
   });
 });
 
+// Paid membership: it must be paid for, and must keep working after the upgrade.
 test.describe('R2 deluxe membership', () => {
   test('a customer can buy deluxe with a card and gets deluxe prices', covers('deluxe.buy', 'customer'), async ({ customer }) => {
     // Arrange
@@ -257,6 +262,8 @@ test.describe('R2 deluxe membership', () => {
     expect(res.status()).toBe(400);
   });
 
+  // Known bug: the token the upgrade returns has no basket id, so the new member's basket calls fail with 401.
+  // The deluxe fixture logs in again to work around it; this test keeps the bug visible.
   test('the token issued at upgrade can still use the basket', covers('basketItems.create', 'deluxe'), async ({ customer, request }) => {
     // Arrange
     const cardId = await addCard(customer);
@@ -271,6 +278,7 @@ test.describe('R2 deluxe membership', () => {
   });
 });
 
+// Staff order handling: accounting manages orders without seeing customers' full emails.
 test.describe('R2 accounting', () => {
   test('accounting sees every order and can mark one delivered', covers('orders.deliveryStatus', 'accounting'), async ({ customer, request }, testInfo) => {
     // Arrange

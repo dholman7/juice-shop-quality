@@ -1,7 +1,8 @@
 /**
  * One valid request per catalog endpoint, built for a given caller.
  * The access matrix sends it as every role: allowed roles must get a success status,
- * everyone else must be refused.
+ * everyone else must be refused. Builders create whatever the request needs (a basket item, an
+ * address, a card) on the right account first, so a refusal can't be blamed on a missing record.
  */
 import type { APIRequestContext } from '@playwright/test';
 import { Api, SECURITY_ANSWER, VALID_ADDRESS, VALID_CARD, addAddress, addCard, addToBasket, login, newCustomer, register, uniqueEmail } from './api';
@@ -9,6 +10,7 @@ import type { Role } from './config';
 import { qaStaff } from './staff';
 import { coupon, customerWith2fa, freshTotp, readyToCheckout } from './shop';
 
+/** The request to send, and which statuses count as success or refusal for this endpoint. */
 export interface Probe {
   path: string;
   data?: Record<string, unknown> | string;
@@ -18,6 +20,7 @@ export interface Probe {
   refused?: number[];
 }
 
+/** What a builder gets: the caller under test and a way to create records it should own. */
 export interface ProbeContext {
   request: APIRequestContext;
   caller: Api;
@@ -28,9 +31,10 @@ export interface ProbeContext {
 
 type Builder = (ctx: ProbeContext) => Promise<Probe>;
 
-/** Mutations aimed at an account must never touch the shared staff seed accounts. */
+/** A separate victim account for destructive calls, so they never change the staff accounts later tests reuse. */
 const throwaway = (ctx: ProbeContext) => newCustomer(ctx.request).then((a) => new Api(ctx.request, a));
 
+/** Worker 0's QA admin, used only to create probe products; the caller under test is separate. */
 const adminApi = async (request: APIRequestContext) => {
   const { email, password } = qaStaff('admin', 0);
   return new Api(request, await login(request, email, password));
@@ -44,6 +48,7 @@ async function productNotInBasket(api: Api): Promise<number> {
   throw new Error('basket already holds every product');
 }
 
+/** Adds a fresh basket item and returns its id. */
 const addItem = async (api: Api) => addToBasket(api, await productNotInBasket(api));
 
 /** A product created for the probe, so price and delete probes never touch the real catalog. */
@@ -58,6 +63,7 @@ async function probeProduct(request: APIRequestContext): Promise<number> {
   return (await res.json()).data.id;
 }
 
+/** One builder per catalog id. A catalog endpoint without a builder makes its access-matrix tests error out. */
 export const PROBES: Record<string, Builder> = {
   // R1
   'basket.get': async (c) => ({ path: `/rest/basket/${(await c.owner()).account!.basketId}`, ok: [200] }),
@@ -84,6 +90,9 @@ export const PROBES: Record<string, Builder> = {
   'dataExport.captcha': async () => ({ path: '/rest/image-captcha', ok: [200] }),
   'dataExport.create': async (c) => {
     // The export page asks for a CAPTCHA first and sends its answer with the request.
+    // Juice Shop only enforces the CAPTCHA if one was requested in the last 5 minutes, and the
+    // CAPTCHA response includes the answer. Following the real flow keeps this probe from passing
+    // because of that bypass; the bypass has its own failing test in customer-data.spec.ts.
     const captcha = c.caller.account ? await (await c.caller.get('/rest/image-captcha')).json() : {};
     return { path: '/rest/user/data-export', data: { format: '1', answer: captcha.answer }, ok: [200] };
   },
@@ -122,6 +131,7 @@ export const PROBES: Record<string, Builder> = {
   }),
   'orders.track': async () => ({ path: '/rest/track-order/0000-0000000000000000', ok: [200] }),
   'orders.all': async () => ({ path: '/rest/order-history/orders', ok: [200] }),
+  // A made-up order id. Accounting still gets 200 and other roles are refused, so the call tests access, not data.
   'orders.deliveryStatus': async () => ({ path: '/rest/order-history/000000000000000000000000/delivery-status', data: { deliveryStatus: false }, ok: [200] }),
   'stock.list': async () => ({ path: '/api/Quantitys', ok: [200] }),
   'stock.update': async () => ({ path: '/api/Quantitys/1', data: { quantity: 80 }, ok: [200] }),
@@ -154,7 +164,8 @@ export const PROBES: Record<string, Builder> = {
   'auth.whoami': async () => ({ path: '/rest/user/whoami', ok: [200] }),
   'auth.saveLoginIp': async () => ({ path: '/rest/saveLoginIp', ok: [200] }),
   'password.change': async (c) => {
-    // Same password in and out, so staff seed accounts keep their credentials.
+    // A GET with the passwords in the query string, as the app sends it. Juice Shop doesn't check
+    // `current` (its own failing test). Same password in and out, so staff accounts keep their credentials.
     const pw = encodeURIComponent(c.caller.account?.password ?? 'x');
     return { path: `/rest/user/change-password?current=${pw}&new=${pw}&repeat=${pw}`, ok: [200] };
   },
@@ -198,10 +209,15 @@ export const PROBES: Record<string, Builder> = {
   'passkey.loginOptions': async () => ({ path: '/rest/passkey/login-options', data: {}, ok: [200] }),
   'passkey.loginVerify': async () => ({ path: '/rest/passkey/login-verify', data: {}, ok: [200] }),
   'passkey.credentials': async () => ({ path: '/rest/passkey/credentials', ok: [200] }),
+  // No credential exists; 404 still proves an allowed caller got past the access check.
   'passkey.deleteCredential': async () => ({ path: '/rest/passkey/credentials/qa-missing', ok: [204, 404] }),
 };
 
-/** Roles a probe cannot run as without breaking shared state; the catalog note says why. */
+/**
+ * Role checks deliberately not run; each catalog note says why. 2FA on a staff account would lock out
+ * the later tests on that worker that sign in with it. Passkey verify needs a real authenticator,
+ * and Juice Shop answers any failed ceremony with 401 by design, so success can't be shown.
+ */
 export const SKIP: Record<string, Role[]> = {
   '2fa.setup': ['accounting', 'admin'],
   '2fa.disable': ['accounting', 'admin'],

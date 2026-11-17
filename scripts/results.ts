@@ -1,20 +1,24 @@
-/** Flattens the Playwright JSON report into one row per test, for the report and coverage map. */
+/** Flattens the Playwright JSON report into one row per test. The report, coverage map, and run history read these rows; triage reads the JSON itself (triage/collect.ts). */
 import { readFileSync } from 'node:fs';
 import { testKey } from '../src/known-bugs';
 
 export interface Row {
+  /** Same format as known-bugs.json entries, so a row can be matched to its bug. */
   key: string;
   file: string;
   title: string;
   project: string;
   /** passed | failed | known-bug | flaky | skipped | fixed (expected to fail but passed) */
   result: 'passed' | 'failed' | 'known-bug' | 'flaky' | 'skipped' | 'fixed';
+  /** From the test's covers() annotations; empty for tests that aren't tied to one endpoint. */
   endpoint?: string;
   role?: string;
   knownBug?: string;
+  /** Includes the retry, if there was one. */
   durationMs: number;
 }
 
+/** The parts of Playwright's JSON reporter output this file reads. */
 interface Suite {
   title: string;
   suites?: Suite[];
@@ -30,6 +34,8 @@ export function readRows(path = 'reports/results.json'): { rows: Row[]; stats: {
       for (const t of spec.tests) {
         const note = (type: string) => t.annotations.find((a) => a.type === type)?.description;
         const knownBug = note('known-bug');
+        // Playwright's status is relative to the expectation: a known bug marked with testInfo.fail()
+        // that fails is "expected", and one that passes is "unexpected". Map both back to plain results.
         let result: Row['result'];
         if (t.status === 'skipped') result = 'skipped';
         else if (t.status === 'flaky') result = 'flaky';

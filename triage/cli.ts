@@ -17,10 +17,12 @@ import { classify } from './heuristic';
 import { classifyWithModel } from './model';
 import { CATEGORIES, type Category, type Decision, type FailureGroup, type Proposal } from './types';
 
+// Proposals are per run (regenerated, not committed); decisions are the committed audit trail.
 const OUT = 'reports/triage';
 const PROPOSALS = `${OUT}/proposals.json`;
 const DECISIONS = 'triage/decisions.jsonl';
 
+/** One triage pass: which provider ran, the groups, and one proposal per group. */
 export interface TriageRun {
   provider: string;
   createdAt: string;
@@ -28,6 +30,7 @@ export interface TriageRun {
   proposals: Proposal[];
 }
 
+/** Collects, groups, and classifies the last run's failures, then writes the proposals for review. Applies nothing. */
 export function propose(provider = process.env.TRIAGE_PROVIDER ?? 'heuristic', reportPath?: string): TriageRun {
   const groups = groupFailures(collectFailures(reportPath));
   const proposals = groups.map((g) => (provider === 'claude' ? classifyWithModel(g) : classify(g)));
@@ -37,6 +40,7 @@ export function propose(provider = process.env.TRIAGE_PROVIDER ?? 'heuristic', r
   return run;
 }
 
+/** The name recorded on every decision and approved bug: REVIEWER, else the git user name. */
 function reviewer(): string {
   if (process.env.REVIEWER) return process.env.REVIEWER;
   try {
@@ -62,6 +66,10 @@ function show(group: FailureGroup, p: Proposal, index: number, total: number): v
   if (p.suggestedTitle) console.log(`  bug title: ${p.suggestedTitle} [${p.suggestedSeverity}]`);
 }
 
+/**
+ * The human gate. Shows each undecided group with its evidence, and records the reviewer's answer.
+ * Groups decided on an earlier run are skipped, so re-running only asks about new defects.
+ */
 async function review(): Promise<void> {
   if (!existsSync(PROPOSALS)) throw new Error('No proposals yet. Run `yarn triage` first.');
   const run = JSON.parse(readFileSync(PROPOSALS, 'utf8')) as TriageRun;
@@ -78,6 +86,7 @@ async function review(): Promise<void> {
     show(group, p, i, pending.length);
     const answer = (await rl.question('  > ')).trim().toLowerCase();
     if (answer === 'q') break;
+    // Skip (or any other key) leaves the group undecided; it comes back next time.
     if (answer !== 'a' && answer !== 'c' && answer !== 'r') continue;
 
     let category: Category = p.category;
@@ -97,6 +106,8 @@ async function review(): Promise<void> {
       decidedAt: new Date().toISOString(),
     };
 
+    // Only an accepted product bug changes test outcomes: its tests become expected failures.
+    // Several groups can be one defect, so the reviewer may add them to an existing bug.
     if (decision.verdict !== 'rejected' && category === 'product-bug') {
       const bugs = loadKnownBugs();
       const existing = (await rl.question(`  add to an existing bug id, or Enter for a new one: `)).trim();
@@ -129,6 +140,7 @@ async function review(): Promise<void> {
   rl.close();
 }
 
+/** Console summary after `yarn triage`: counts per proposed category. */
 function summary(run: TriageRun): void {
   const counts = Object.fromEntries(CATEGORIES.map((c) => [c, run.proposals.filter((p) => p.category === c).length]));
   const tests = run.groups.reduce((n, g) => n + g.failures.length, 0);

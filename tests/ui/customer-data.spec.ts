@@ -1,9 +1,13 @@
-/** R1 UI: customers manage their own basket, addresses, and cards; only admins see other customers. */
+/**
+ * R1 UI: customers manage their own basket, addresses, and cards; only admins see other customers.
+ * Data is set up through the API and the browser starts signed in, so each test drives only the screen under test.
+ */
 import { test, expect, covers } from '../../src/fixtures';
 import { addToBasket } from '../../src/api';
 import { checkout, readyToCheckout } from '../../src/shop';
 import { dismissCookieBanner, signIn } from '../../src/ui';
 
+// The cookie banner covers buttons at the bottom of the page.
 test.beforeEach(async ({ page }) => dismissCookieBanner(page));
 
 for (const role of ['customer', 'deluxe'] as const) {
@@ -23,6 +27,7 @@ for (const role of ['customer', 'deluxe'] as const) {
   });
 }
 
+// Every signed-in role can save addresses and cards, so every one is tested.
 for (const role of ['customer', 'deluxe', 'accounting', 'admin'] as const) {
   test(`${role} saves a new address`, covers('addresses.create', role), async ({ page, as }) => {
     // Arrange
@@ -60,10 +65,11 @@ for (const role of ['customer', 'deluxe', 'accounting', 'admin'] as const) {
     await panel.getByRole('textbox').first().fill('UI Card Holder');
     await panel.getByRole('spinbutton').fill('4716190207394368');
     await panel.locator('select').nth(0).selectOption('7');
+    // The app only accepts expiry years 2080–2099.
     await panel.locator('select').nth(1).selectOption('2090');
     await panel.locator('#submitButton').click();
 
-    // Assert
+    // Assert: the saved card is shown masked, and the full number appears nowhere on the page
     await expect(page.getByText('************4368').first()).toBeVisible();
     await expect(page.getByText('4716190207394368')).toHaveCount(0);
   });
@@ -91,9 +97,11 @@ test('admin sees registered customers on the administration page', covers('users
 
   // Assert
   await expect(page.getByRole('heading', { name: 'Administration' })).toBeVisible();
+  // jim@juice-sh.op is a seeded customer, so seeing it proves the page lists other customers.
   await expect(page.getByText('jim@juice-sh.op').first()).toBeVisible();
 });
 
+// The screen check only; the API refusal for the same data is in access-matrix.spec.ts.
 for (const role of ['customer', 'deluxe', 'accounting'] as const) {
   test(`${role} cannot open the administration page`, covers('users.list', role), async ({ page, as }) => {
     // Arrange

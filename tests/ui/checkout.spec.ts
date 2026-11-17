@@ -5,8 +5,13 @@ import { checkout, coupon, readyToCheckout } from '../../src/shop';
 import { dismissCookieBanner, signIn } from '../../src/ui';
 import type { Page } from '@playwright/test';
 
+// The cookie banner covers buttons at the bottom of the page.
 test.beforeEach(async ({ page }) => dismissCookieBanner(page));
 
+/**
+ * Basket → address → delivery → payment → review, as a customer clicks it. Picks the test address
+ * and card that readyToCheckout saved (VALID_CARD shows as ************1111). Stops before buying.
+ */
 async function clickThroughCheckout(page: Page): Promise<void> {
   await page.goto('/#/basket');
   await page.locator('#checkoutButton').click();
@@ -32,6 +37,7 @@ for (const role of ['customer', 'deluxe'] as const) {
     // Assert
     await expect(page).toHaveURL(/order-completion/);
     await expect(page.getByText('Thank you for your purchase!')).toBeVisible();
+    // The basket badge drops to 0: the order emptied the basket.
     await expect(page.getByRole('button', { name: 'Show the shopping cart' })).toContainText('0');
   });
 }
@@ -47,6 +53,7 @@ test('deluxe member sees the deluxe price in the basket', covers('basket.get', '
   await page.goto('/#/basket');
 
   // Assert
+  // The expected price comes from the API, so the test checks the page shows the deluxe price, not a hardcoded number.
   await expect(page.locator('mat-row', { hasText: 'Apple Juice' })).toContainText(`${deluxePrice}¤`);
 });
 
@@ -73,6 +80,7 @@ test('customer redeems this month\'s coupon', covers('basket.coupon', 'customer'
 
   // Act
   await page.getByRole('button', { name: /Add a coupon/ }).click();
+  // A 10% coupon for the current month, built the same way marketing issues them.
   await page.locator('#coupon').fill(coupon(10));
   await page.locator('#applyCouponButton').click();
 
@@ -113,6 +121,7 @@ test('customer buys deluxe membership with a card', covers('deluxe.buy', 'custom
   await expect(page.getByText('You are already a deluxe member!')).toBeVisible();
 });
 
+// Tracking is public by design: anyone with the order number can see it, signed in or not.
 for (const role of ['anonymous', 'customer'] as const) {
   test(`${role} tracks an order by its number`, covers('orders.track', role), async ({ page, customer, as }) => {
     // Arrange
@@ -140,13 +149,14 @@ test('accounting marks a new order as delivered', covers('orders.deliveryStatus'
   // Act
   await row.getByRole('button').click();
 
-  // Assert
+  // Assert: read back through the API; poll because the page saves asynchronously
   await expect.poll(async () => {
     const [order] = (await (await customer.get(`/rest/track-order/${orderConfirmation}`)).json()).data;
     return order.delivered;
   }).toBe(true);
 });
 
+// Only accounting may see every order. The API refusal is in access-matrix.spec.ts.
 for (const role of ['customer', 'deluxe', 'admin'] as const) {
   test(`${role} has no accounting page`, covers('orders.all', role), async ({ page, as }) => {
     // Arrange

@@ -1,7 +1,13 @@
+/**
+ * Known-bug registry: product bugs a person approved in `yarn triage:review`, stored in known-bugs.json.
+ * Tests that hit one are marked as expected failures, so CI stays red only for new failures
+ * while the bug stays visible in the report.
+ */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { TestInfo } from '@playwright/test';
 
+/** One approved bug. Only the review CLI writes these, with the reviewer's name and date. */
 export interface KnownBug {
   id: string;
   title: string;
@@ -22,6 +28,7 @@ export function loadKnownBugs(path = KNOWN_BUGS_PATH): KnownBug[] {
 /** Stable test key: file under tests/ plus the describe and test titles. */
 export const testKey = (titlePath: string[]): string => titlePath.filter(Boolean).join(' › ');
 
+/** The approved bug a test belongs to, if any: exact key match, or prefix match for patterns ending in `*`. */
 export function bugFor(key: string, bugs: KnownBug[]): KnownBug | undefined {
   return bugs.find((bug) =>
     bug.tests.some((pattern) => (pattern.endsWith('*') ? key.startsWith(pattern.slice(0, -1)) : key === pattern)),
@@ -32,6 +39,8 @@ export function bugFor(key: string, bugs: KnownBug[]): KnownBug | undefined {
  * Marks a test that hits an approved, open product bug as an expected failure.
  * The assertion stays as written; when the bug is fixed the test passes, Playwright
  * reports "expected to fail but passed", and the registry entry must be removed.
+ * This is the alternative to weakening the assertion or skipping the test, which would hide the bug.
+ * IGNORE_KNOWN_BUGS=1 turns the registry off, so every product bug shows as a plain failure.
  */
 export function applyKnownBug(testInfo: TestInfo, bugs = loadKnownBugs()): void {
   if (process.env.IGNORE_KNOWN_BUGS === '1') return;

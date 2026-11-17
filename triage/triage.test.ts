@@ -1,3 +1,4 @@
+/** Unit tests for the triage pieces that need no app: redaction, the rules, model-answer validation, grouping. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { redact } from './redact';

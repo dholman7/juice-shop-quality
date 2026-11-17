@@ -11,6 +11,7 @@ import { ROLES, type Role } from '../../src/config';
 import { endpoint } from '../../src/catalog';
 import { coupon, checkout, basket } from '../../src/shop';
 
+/** Another customer's records, each tagged with a unique marker so a leak is easy to spot in any response. */
 interface Victim {
   api: Api;
   marker: string;
@@ -31,9 +32,11 @@ async function victim(request: APIRequestContext): Promise<Victim> {
   };
 }
 
+// 404 counts as a refusal: hiding that the record exists is as good as refusing it.
 const REFUSED = [400, 401, 403, 404];
 const refused = (status: number, label: string) => expect(REFUSED, `${label} returned ${status}`).toContain(status);
 
+/** One owner-only endpoint: the attack, and how to check nothing changed for the victim. */
 interface Case {
   id: string;
   /** What the attacker tries. */
@@ -50,6 +53,7 @@ const send = async (p: Promise<import('@playwright/test').APIResponse>) => {
 const itemQuantity = async (v: Victim) =>
   (await basket(v.api)).Products.find((p) => p.id === 1)?.BasketItem.quantity;
 
+// Every owner-only endpoint in the catalog that takes a record id or basket id.
 const CASES: Case[] = [
   { id: 'basket.get', act: (a, v) => send(a.get(`/rest/basket/${v.api.account!.basketId}`)) },
   {
@@ -125,6 +129,7 @@ for (const c of CASES) {
           expect(status).toBe(200);
           return;
         }
+        // A refusal isn't enough: the body must not leak the victim's data, and a write must not have landed.
         refused(status, `${ep.method} ${ep.path} as ${role}`);
         expect(body, 'response must not contain the other customer\'s data').not.toContain(v.marker);
         expect(body).not.toContain(v.api.account!.email);
@@ -134,6 +139,7 @@ for (const c of CASES) {
   });
 }
 
+// List endpoints take no id, so the risk is returning everyone's records instead of the caller's.
 test.describe('R1 isolation › lists only show the caller\'s own records', () => {
   const lists: [string, string][] = [
     ['addresses.list', '/api/Addresss'],
@@ -155,6 +161,7 @@ test.describe('R1 isolation › lists only show the caller\'s own records', () =
         expect(res.status()).toBe(200);
         const body = await res.text();
         expect(body).not.toContain(v.marker);
+        // Order history shows emails with vowels masked, so check for that form too.
         expect(body).not.toContain(v.api.account!.email.replace(/[aeiou]/gi, '*'));
       });
     }
@@ -163,7 +170,8 @@ test.describe('R1 isolation › lists only show the caller\'s own records', () =
 
 test('R1 isolation › a duplicate BasketId key cannot add items to another customer\'s basket',
   covers('basketItems.create', 'customer'), async ({ request, customer }) => {
-    // Arrange
+    // Arrange: a body with BasketId twice, the caller's then the victim's. Sent as raw text because
+    // a JS object can't hold a duplicate key. Checks that ownership and the write use the same value.
     const v = await victim(request);
     const raw = `{"ProductId": 2, "BasketId": "${customer.account!.basketId}", "quantity": 1, "BasketId": "${v.api.account!.basketId}"}`;
 

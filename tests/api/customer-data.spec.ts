@@ -1,8 +1,12 @@
-/** R1 behavior: customers manage their own basket, addresses, cards, and data export correctly. */
+/**
+ * R1 behavior: customers manage their own basket, addresses, cards, and data export correctly.
+ * Access by other customers is in isolation.spec.ts; this file checks the owner's own flows.
+ */
 import { test, expect, covers } from '../../src/fixtures';
 import { VALID_ADDRESS, VALID_CARD, addAddress, addCard, addToBasket } from '../../src/api';
 import { basket } from '../../src/shop';
 
+// Basket edits: quantities must stay valid and within per-customer and stock limits.
 test.describe('R1 basket', () => {
   test('shows the products the customer added, with quantities', covers('basket.get', 'customer'), async ({ customer }) => {
     // Arrange
@@ -92,6 +96,7 @@ test.describe('R1 basket', () => {
   });
 });
 
+// The full address lifecycle for the owner.
 test.describe('R1 addresses', () => {
   test('saves, lists, updates, and deletes an address', covers('addresses.create', 'customer'), async ({ customer }) => {
     // Arrange
@@ -120,6 +125,7 @@ test.describe('R1 addresses', () => {
   }
 });
 
+// Card data exposure: the full number must never come back after it's saved.
 test.describe('R1 payment cards', () => {
   test('only ever returns the last four digits of a card', covers('cards.list', 'customer'), async ({ customer }) => {
     // Arrange
@@ -166,6 +172,7 @@ test.describe('R1 payment cards', () => {
   });
 });
 
+// Personal data leaving the system: password hashes, and the privacy export behind its CAPTCHA.
 test.describe('R1 account data', () => {
   test('a user record never includes the password hash', covers('users.get', 'customer'), async ({ customer }) => {
     // Act
@@ -186,7 +193,8 @@ test.describe('R1 account data', () => {
   });
 
   test('data export requires a solved CAPTCHA', covers('dataExport.create', 'customer'), async ({ customer }) => {
-    // Act: no CAPTCHA requested, no answer sent
+    // Act: no CAPTCHA requested, no answer sent. Juice Shop only checks the CAPTCHA if one was
+    // requested in the last 5 minutes, so this exposes that bypass.
     const res = await customer.post('/rest/user/data-export', { format: '1' });
 
     // Assert

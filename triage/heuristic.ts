@@ -5,12 +5,18 @@
 import { endpoint as catalogEndpoint } from '../src/catalog';
 import type { FailureGroup, Proposal } from './types';
 
+// Starting severity for a proposed bug, from the strategy's risk ranking. The reviewer can change it.
 const SEVERITY_BY_AREA = { R1: 'critical', R2: 'high', R3: 'critical' } as const;
 
+/** The first line matching the pattern, as written: evidence is always a real quote, never a paraphrase. */
 function quote(text: string, pattern: RegExp): string | undefined {
   return text.split('\n').find((line) => pattern.test(line))?.trim();
 }
 
+/**
+ * Rules run in order, and the first match wins. Order matters: an unreachable app or a broken
+ * selector must not be mistaken for a product bug, so those checks come before the assertion check.
+ */
 export function classify(group: FailureGroup): Proposal {
   const f = group.failures[0];
   const text = f.error;
@@ -26,9 +32,11 @@ export function classify(group: FailureGroup): Proposal {
   const testBug = quote(text, /strict mode violation|TypeError|ReferenceError|is not a function|Cannot read properties|resolved to \d+ elements|SyntaxError/);
   if (testBug) return { ...base, category: 'test-bug', confidence: 'high', evidence: testBug, reasoning: 'The failure comes from the test code or a selector, not from a product response.' };
 
+  // A timeout alone doesn't say whose fault it is, so it goes to a person.
   const timeout = quote(text, /Test timeout of \d+ms exceeded|locator\.\w+: Timeout/);
   if (timeout) return { ...base, category: 'needs-human', confidence: 'low', evidence: timeout, reasoning: 'A timeout can be a slow app, a changed page, or a wrong selector; the trace decides.' };
 
+  // A failed assertion on a real response: quote the Expected/Received pair so the reviewer sees both values.
   const expected = quote(text, /^Expected( path| pattern| substring| value)?:/);
   const received = quote(text, /^Received( value| string| array)?:/);
   const status = quote(text, /returned \d{3}/) ?? (expected && received && /\d{3}/.test(received) ? `${expected} / ${received}` : undefined);

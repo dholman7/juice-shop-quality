@@ -8,6 +8,7 @@ import { ENDPOINTS } from '../src/catalog';
 import { classify } from './heuristic';
 import { CATEGORIES, type FailureGroup, type Proposal } from './types';
 
+// JSON schema for the answer; the CLI makes Claude return exactly this shape (structured output).
 const SCHEMA = {
   type: 'object',
   properties: {
@@ -21,6 +22,10 @@ const SCHEMA = {
   required: ['category', 'confidence', 'evidence', 'reasoning'],
 };
 
+/**
+ * One group's failure text plus the endpoint's intended access policy. The failure text is fenced
+ * and labeled as data, so instructions planted in an error message aren't followed.
+ */
 function prompt(group: FailureGroup): string {
   const f = group.failures[0];
   const policy = f.endpoint ? ENDPOINTS.find((e) => e.id === f.endpoint) : undefined;
@@ -70,6 +75,10 @@ export function validate(group: FailureGroup, answer: Partial<Proposal>): Propos
   };
 }
 
+/**
+ * Asks Claude (Haiku by default) via `claude -p` with no tools and no saved session, then validates
+ * the answer. Any error falls back to the heuristic's proposal, marked with why.
+ */
 export function classifyWithModel(group: FailureGroup, model = process.env.TRIAGE_MODEL ?? 'haiku'): Proposal {
   try {
     const out = execFileSync(

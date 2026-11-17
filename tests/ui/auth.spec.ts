@@ -5,6 +5,7 @@ import { customerWith2fa, freshTotp } from '../../src/shop';
 import { qaStaff } from '../../src/staff';
 import { dismissCookieBanner, fillLogin, openAccountMenu, signIn } from '../../src/ui';
 
+// The cookie banner covers buttons at the bottom of the page.
 test.beforeEach(async ({ page }) => dismissCookieBanner(page));
 
 test('a visitor registers and can then log in', covers('users.register', 'anonymous'), async ({ page, request }) => {
@@ -20,6 +21,7 @@ test('a visitor registers and can then log in', covers('users.register', 'anonym
   await page.locator('#emailControl').fill(email);
   await page.locator('#passwordControl').fill(password);
   await page.locator('#repeatPasswordControl').fill(password);
+  // Angular Material select: open it from its trigger, then pick the option.
   await page.locator('#securityQuestionControl .mat-mdc-select-trigger').click();
   await page.getByRole('option', { name: 'Your eldest siblings middle name?' }).click();
   await page.locator('#securityAnswerControl').fill(SECURITY_ANSWER);
@@ -34,6 +36,7 @@ for (const role of ['customer', 'deluxe', 'accounting', 'admin'] as const) {
   test(`${role} logs in through the form`, covers('auth.login', role), async ({ page, as }, testInfo) => {
     // Arrange
     const user = await as(role);
+    // Staff sign in with this worker's own QA account, the same one the `as` fixture used.
     const { email, password } =
       role === 'accounting' || role === 'admin' ? qaStaff(role, testInfo.parallelIndex) : user.account!;
 
@@ -54,7 +57,7 @@ test('a wrong password shows a generic error', covers('auth.login', 'anonymous')
   // Act
   await fillLogin(page, email, 'not-the-password');
 
-  // Assert
+  // Assert: the same message for any wrong login, so it doesn't reveal which emails are registered
   await expect(page.getByText('Invalid email or password.')).toBeVisible();
   await expect(page).toHaveURL(/login/);
 });
@@ -71,6 +74,7 @@ test('customer logs out', covers('auth.whoami', 'customer'), async ({ page, cust
   // Assert
   await openAccountMenu(page);
   await expect(page.getByRole('menuitem', { name: 'Go to login page' })).toBeVisible();
+  // The session token must be gone from the browser, not just hidden in the menu.
   expect(await page.evaluate(() => localStorage.getItem('token'))).toBeNull();
 });
 
@@ -128,11 +132,13 @@ test('customer turns on 2FA, and the next login asks for a code', covers('2fa.se
   // Act
   await page.locator('#currentPasswordSetup').fill(customer.account!.password);
   await page.locator('#initialToken').fill(await freshTotp(secret));
+  // Confirms the field kept its value before saving; a reset field sends an empty password.
   await expect(page.locator('#currentPasswordSetup')).toHaveValue(customer.account!.password);
   await page.locator('#setupTwoFactorAuth').click();
 
   // Assert
   await expect(page.getByText('You have enabled 2FA for your account.')).toBeVisible();
+  // Proven through the API: the password alone now gets a 2FA challenge, not a session.
   const res = await request.post('/rest/user/login', { data: { email: customer.account!.email, password: customer.account!.password } });
   expect((await res.json()).status).toBe('totp_token_required');
 });

@@ -16,16 +16,22 @@ export const IMAGE =
   process.env.JUICE_SHOP_IMAGE ??
   'bkimminich/juice-shop@sha256:877fc77b12d72b42e486eb09b6b1711cc56514306d92006b284e7e7cf076a809';
 const NAME = 'juice-shop';
+// Passed as NODE_CONFIG: turns off training-mode pop-ups that cover the page in UI tests.
 const TEST_CONFIG = {
   challenges: { showSolvedNotifications: false },
   hackingInstructor: { isEnabled: false },
   application: { welcomeBanner: { showOnFirstStart: false } },
 };
+// Generated each run and git-ignored; mounted over the image's own seed file.
 const SEED = resolve('env/users.yml');
 
 const docker = (...args: string[]) => execFileSync('docker', args, { encoding: 'utf8' }).trim();
 
-/** The image's own users.yml plus the QA staff accounts appended at the end. */
+/**
+ * The image's own users.yml plus the QA staff accounts appended at the end. Copied out of a
+ * stopped container because the image is distroless (no shell to run commands in).
+ * Juice Shop seeds every user in this file on start, so the accounts exist before any test runs.
+ */
 function writeSeed(): void {
   const scratch = docker('create', IMAGE);
   try {
@@ -52,6 +58,7 @@ function writeSeed(): void {
   writeFileSync(SEED, `${readFileSync(SEED, 'utf8').trimEnd()}\n${extra.join('\n')}\n`);
 }
 
+/** Polls a cheap public endpoint until the app answers, so tests never start against a booting server. */
 export async function waitUntilUp(timeoutMs = 120_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -74,6 +81,7 @@ export function down(): void {
   }
 }
 
+/** Always a fresh container, so data from an earlier run can't affect this one. */
 export async function up(): Promise<void> {
   down();
   writeSeed();

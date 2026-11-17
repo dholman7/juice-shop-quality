@@ -7,8 +7,10 @@ const PASSWORD = 'Valid-Passw0rd!';
 const signUp = (email: string, extra: Record<string, unknown> = {}) => ({
   email, password: PASSWORD, passwordRepeat: PASSWORD, securityQuestion: { id: 1 }, securityAnswer: SECURITY_ANSWER, ...extra,
 });
+// The user record inside a JWT, to check what a session token reveals.
 const claims = (token: string) => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).data;
 
+// Account creation: no self-granted roles, no duplicate or malformed accounts.
 test.describe('R3 sign-up', () => {
   test('creates a customer account', covers('users.register', 'anonymous'), async ({ anonymous }) => {
     // Act
@@ -56,6 +58,7 @@ test.describe('R3 sign-up', () => {
   });
 });
 
+// Account takeover routes: guessing, SQL injection, forged or unsigned tokens, data in the token.
 test.describe('R3 login', () => {
   test('returns a session for the right password', covers('auth.login', 'anonymous'), async ({ request }) => {
     // Arrange
@@ -143,6 +146,7 @@ test.describe('R3 login', () => {
   });
 });
 
+// 2FA must actually be required once on, and only the right code gets through.
 test.describe('R3 two-factor authentication', () => {
   test('after setup, the password alone does not log in', covers('2fa.setup', 'customer'), async ({ request }) => {
     // Arrange
@@ -223,7 +227,9 @@ test.describe('R3 two-factor authentication', () => {
   });
 });
 
+// Changing and resetting passwords: each path must prove it's the account owner.
 test.describe('R3 passwords', () => {
+  // change-password is a GET with the passwords in the query string; here `current` is left out entirely.
   test('changing the password requires the current password', covers('password.change', 'customer'), async ({ customer }) => {
     // Act
     const res = await customer.get('/rest/user/change-password?new=Another-Passw0rd!&repeat=Another-Passw0rd!');

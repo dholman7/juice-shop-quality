@@ -1,3 +1,4 @@
+/** Unit tests for run history: ordering, de-duplication, the size cap, and recovery from a bad file. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';

@@ -1,8 +1,12 @@
+/** Browser helpers shared by the UI specs: sign in without the login form, and clear overlays that block clicks. */
 import type { Page } from '@playwright/test';
 import type { Account } from './api';
 import { BASE_URL } from './config';
 
-/** Starts the browser already signed in, as the app does after a successful login. */
+/**
+ * Starts the browser already signed in, as the app does after a successful login: the token
+ * in a cookie and localStorage, the basket id in sessionStorage. Saves a UI login per test.
+ */
 export async function signIn(page: Page, account: Account): Promise<void> {
   await page.context().addCookies([{ name: 'token', value: account.token, url: BASE_URL }]);
   await page.addInitScript(
@@ -23,6 +27,7 @@ export async function openAccountMenu(page: Page): Promise<void> {
   await page.locator('#navbarAccount').click();
 }
 
+/** Submits the real login form, for tests where the login itself is what's under test. */
 export async function fillLogin(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/#/login');
   await page.locator('#email').fill(email);
