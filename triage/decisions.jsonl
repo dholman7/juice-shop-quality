@@ -39,3 +39,5 @@
 {"groupId":"G-61cb936a","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:53:20.000Z","bugId":"BUG-025","title":"Any signed-in user can apply a coupon to, or check out, another customer's basket"}
 {"groupId":"G-6a1923ca","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:54:00.000Z","bugId":"BUG-025"}
 {"groupId":"G-26faaf1e","verdict":"accepted","category":"product-bug","reviewer":"John Q Tester","decidedAt":"2026-11-17T19:54:40.000Z","bugId":"BUG-026","title":"Sending BasketId twice adds items to another customer's basket"}
+{"groupId":"G-c9b93114","verdict":"accepted","category":"product-bug","reviewer":"Dan Holman","decidedAt":"2026-11-17T21:44:56.149Z","bugId":"BUG-008"}
+{"groupId":"G-8f48ea44","verdict":"accepted","category":"product-bug","reviewer":"Dan Holman","decidedAt":"2026-11-17T21:53:34.306Z","bugId":"BUG-008"}

@@ -58,7 +58,7 @@
       "id": "BUG-003",
       "jira": "SHOP-216",
       "title": "Any signed-in user can read any user record, the full user list, and login details",
-      "severity": "high",
+      "severity": "critical",
       "impact": 5,
       "likelihood": 5,
       "area": "R1",
@@ -79,7 +79,18 @@
         "users.list"
       ],
       "approvedBy": "John Q Tester",
-      "approvedOn": "2026-11-17"
+      "approvedOn": "2026-11-17",
+      "rerated": [
+        {
+          "from": "high",
+          "to": "critical",
+          "impact": 5,
+          "likelihood": 5,
+          "reason": "it effects every user",
+          "by": "Dan Holman",
+          "on": "2026-11-17"
+        }
+      ]
     },
     {
       "id": "BUG-004",
@@ -164,7 +175,9 @@
       "area": "R3",
       "tests": [
         "api/auth.spec.ts › R3 login › the session token does not carry the password hash",
-        "api/auth.spec.ts › R3 login › records the login IP without returning the password hash"
+        "api/auth.spec.ts › R3 login › records the login IP without returning the password hash",
+        "api/auth.spec.ts › R3 passwords › the password change response does not return the password hash",
+        "api/auth.spec.ts › R3 passwords › the password reset response does not return the password hash"
       ],
       "endpoints": [
         "auth.login",
@@ -196,7 +209,7 @@
       "id": "BUG-010",
       "jira": "SHOP-223",
       "title": "No rate limit on wrong passwords",
-      "severity": "medium",
+      "severity": "high",
       "impact": 4,
       "likelihood": 3,
       "area": "R3",
@@ -207,7 +220,18 @@
         "auth.login"
       ],
       "approvedBy": "John Q Tester",
-      "approvedOn": "2026-11-17"
+      "approvedOn": "2026-11-17",
+      "rerated": [
+        {
+          "from": "medium",
+          "to": "high",
+          "impact": 4,
+          "likelihood": 3,
+          "reason": "Needs a known customer email and a weak or reused password; strong passwords and 2FA still hold.",
+          "by": "Dan Holman",
+          "on": "2026-11-17"
+        }
+      ]
     },
     {
       "id": "BUG-011",
