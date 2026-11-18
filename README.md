@@ -245,7 +245,7 @@ In a shared pipeline:
 
 ## Next steps
 
-- Create the Jira ticket from the review page through the Jira API, instead of typing a key filed by hand.
+- **Host the review page as a team app.** A static frontend with a small backend: single sign-on (the reviewer is the signed-in user, not a typed name), Jira tickets created from the page, and approvals posted as pull-request reviews on GitHub or Bitbucket. A database keeps triage runs, decisions, and scores, so agent agreement and time to decide are tracked over time. Approved bugs still reach `known-bugs.json` through a pull request the app opens, so CI reads git and never depends on the app being up.
 - Confirm three assumed rules with the product owner: a 429 within 20 wrong passwords, an address needs a name, and admins can't read customer baskets through the customer API.
 - **Evaluate triage against labeled failures.** Reviewed decisions plus deliberately broken tests, outages, and planted races give known causes. Score accuracy per category, product-bug precision, and confident-but-wrong answers with confidence intervals, on a frozen held-out split, replayed keyless in CI. Same method as [agent-eval-gate](https://github.com/dholman7/agent-eval-gate).
 - Authenticated and active ZAP scans nightly on staging; the baseline sees only what an anonymous spider reaches.
