@@ -46,8 +46,8 @@ export function summarize(): RunSummary {
   const { rows, stats } = readRows();
   const n = (r: string) => rows.filter((x) => x.result === r).length;
 
-  const triage: TriageRun | undefined = existsSync('reports/triage/proposals.json')
-    ? JSON.parse(readFileSync('reports/triage/proposals.json', 'utf8'))
+  const triage: TriageRun | undefined = existsSync(statePath('proposals'))
+    ? JSON.parse(readFileSync(statePath('proposals'), 'utf8'))
     : undefined;
   const notProduct = new Set(
     (triage?.proposals ?? []).filter((p) => p.category === 'test-bug' || p.category === 'environment').map((p) => p.groupId),

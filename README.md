@@ -88,7 +88,7 @@ It exits non-zero if any test fails that is not an approved open bug, if an appr
 | `REVIEWER="Your Name" yarn triage:review` | A person accepts, changes, or rejects each group. The screen shows the rule being tested, the likely cause, quoted evidence, and severity. |
 | `REVIEWER="Your Name" yarn triage:rate` | A person changes an open bug's impact and likelihood scores with a reason; the severity follows, and the change is kept on the bug and shown in the report |
 | `yarn report`, `yarn coverage:map` | Rebuild the report or coverage map from the last run |
-| `yarn test:unit` | Unit tests for triage (redaction, rules, validation, grouping, duplicate suggestions, bug filing, Jira keys, severity scoring), run history, the software passkey, and the scan gate |
+| `yarn test:unit` | 82 tests in about 5 seconds, no app needed: triage (redaction, rules, validation, grouping, duplicate suggestions, bug filing, Jira keys, severity scoring), run history, the software passkey, the scan gate, demo seeding, and the review page end to end (its server on a throwaway git checkout, and the page in Chromium) |
 
 > [!IMPORTANT]
 > Only run this against your own local container. The security checks send attack payloads (SQL injection, forged tokens).
@@ -232,6 +232,7 @@ Built with Claude Code. Most of the AI's mistakes surfaced the same way: run the
 | Triage rule: 502, 503, or 504 anywhere in the error means the app was down | It matched file paths and line numbers. Under a folder named `claude-502`, real product bugs were proposed as "environment". | Stack and code-frame lines are left out of that check; a unit test pins the case. |
 | Terminal prompts as the tester's review tool | Too much for a manual tester. My own review hit two bugs: a mistyped key skipped a bug and the review exited as if it had crashed, and an extra argument crashed `yarn all`. | Both fixed. `yarn review` puts the same review on one local page, writing the same files through the same code. |
 | Review page cards built from nested lists, and redrawn on every decision | Found by driving the demo in a browser: suggested duplicates showed as "[object HTMLLabelElement]", and a search typed in one card vanished when another card was decided. | Lists flatten fully, and cards persist between redraws; the browser run now types in one card, decides two others, then uses the search. |
+| Review page's save and push, first version | A review pass over the page found that "Commit and push" pushed every unpushed commit on the branch, a branch with no upstream had no push retry, and "All decided" showed while groups were left for later. | A push now sends only review commits and sets the upstream on first push; deferred groups block "All decided". The page has its own tests: 14 against the server on a throwaway git checkout, 9 in Chromium. |
 
 ## Secrets
 

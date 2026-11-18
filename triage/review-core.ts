@@ -9,8 +9,6 @@ import { endpoint as catalogEndpoint } from '../src/catalog';
 import type { Category, Decision, FailureGroup, Proposal } from './types';
 import { statePath } from '../src/review-state';
 
-export const OUT = 'reports/triage';
-export const PROPOSALS = `${OUT}/proposals.json`;
 // Proposals are per run (regenerated, not committed); decisions (triage/decisions.jsonl) are the committed audit trail.
 
 /** One triage pass: which provider ran, the groups, and one proposal per group. */
@@ -55,9 +53,16 @@ export function appendDecision(decision: Decision): void {
   appendFileSync(statePath('decisions'), `${JSON.stringify(decision)}\n`);
 }
 
+/** No triage run yet: a normal state, unlike a proposals file that can't be read. */
+export class NoProposals extends Error {
+  constructor() {
+    super('No proposals yet. Run `yarn all` or `yarn triage` first.');
+  }
+}
+
 export function loadRun(): TriageRun {
-  if (!existsSync(PROPOSALS)) throw new Error('No proposals yet. Run `yarn all` or `yarn triage` first.');
-  return JSON.parse(readFileSync(PROPOSALS, 'utf8')) as TriageRun;
+  if (!existsSync(statePath('proposals'))) throw new NoProposals();
+  return JSON.parse(readFileSync(statePath('proposals'), 'utf8')) as TriageRun;
 }
 
 /** Proposals with no decision yet. Groups decided on an earlier run are skipped, so only new defects come back. */

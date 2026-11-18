@@ -21,7 +21,6 @@ export const ZAP_IMAGE =
   'ghcr.io/zaproxy/zaproxy:2.17.0@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af';
 export const OUT = 'reports/zap';
 const REPORT_JSON = `${OUT}/zap.json`;
-export const SUMMARY = `${OUT}/summary.json`;
 
 export type Risk = 'high' | 'medium' | 'low' | 'informational';
 const RISKS: Risk[] = ['informational', 'low', 'medium', 'high'];
@@ -136,12 +135,12 @@ export function scan(): ZapSummary {
   }
   const { version, findings } = readFindings();
   const summary: ZapSummary = { scannedAt: new Date().toISOString(), zapVersion: version, ...evaluate(findings, loadDecisions()) };
-  writeFileSync(SUMMARY, JSON.stringify(summary, null, 2));
+  writeFileSync(statePath('zapSummary'), JSON.stringify(summary, null, 2));
   return summary;
 }
 
 export function readSummary(): ZapSummary | undefined {
-  return existsSync(SUMMARY) ? (JSON.parse(readFileSync(SUMMARY, 'utf8')) as ZapSummary) : undefined;
+  return existsSync(statePath('zapSummary')) ? (JSON.parse(readFileSync(statePath('zapSummary'), 'utf8')) as ZapSummary) : undefined;
 }
 
 export function printSummary(s: ZapSummary): void {

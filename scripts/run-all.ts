@@ -15,8 +15,8 @@ import { recordRun, summarize } from './history';
 import { coverageMarkdown } from './coverage-map';
 import { readRows } from './results';
 import { loadKnownBugs, severityMismatches } from '../src/known-bugs';
-import { isDemo } from '../src/review-state';
-import { SUMMARY as ZAP_SUMMARY, printSummary, scan, type ZapSummary } from '../security/zap';
+import { isDemo, statePath } from '../src/review-state';
+import { printSummary, scan, type ZapSummary } from '../security/zap';
 
 if (process.env.SKIP_APP !== '1') {
   console.log('Starting a fresh Juice Shop...');
@@ -27,7 +27,7 @@ if (process.env.SKIP_APP !== '1') {
 let zap: ZapSummary | undefined;
 let zapError = false;
 // A skipped or failed scan must not leave the last run's findings in the report.
-rmSync(ZAP_SUMMARY, { force: true });
+rmSync(statePath('zapSummary'), { force: true });
 if (process.env.SKIP_ZAP !== '1') {
   console.log('Running the OWASP ZAP baseline scan (passive, about a minute)...');
   try {

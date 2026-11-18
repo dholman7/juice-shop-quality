@@ -1,10 +1,28 @@
-/** Unit tests for the demo seed: it starts from the committed review, undoes only PLAN, and stays in .demo/. */
-import { test } from 'node:test';
+/**
+ * Unit tests for the demo seed: it starts from the committed review, undoes only PLAN, and stays in .demo/.
+ * They run on a temporary copy of the committed review files, so a real `.demo/` is never touched.
+ */
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PLAN, seedDemo } from './demo-seed';
 import { loadKnownBugs, severityMismatches } from '../src/known-bugs';
 import { committedPath, resetDemo, statePath } from '../src/review-state';
+
+const REPO = fileURLToPath(new URL('..', import.meta.url));
+let tmp: string;
+before(() => {
+  tmp = mkdtempSync(join(tmpdir(), 'demo-seed-'));
+  for (const file of ['known-bugs.json', 'triage/decisions.jsonl', 'security/zap-findings.json']) cpSync(join(REPO, file), join(tmp, file));
+  process.env.REVIEW_ROOT = tmp;
+});
+after(() => {
+  delete process.env.REVIEW_ROOT;
+  rmSync(tmp, { recursive: true, force: true });
+});
 
 const committedBugs = () => loadKnownBugs(committedPath('knownBugs'));
 const lines = (path: string) => readFileSync(path, 'utf8').split('\n').filter(Boolean);
@@ -67,6 +85,7 @@ test('review state is the committed files, or empty copies in .demo/ with DEMO=1
     // Assert
     assert.match(committed, /\/known-bugs\.json$/);
     assert.doesNotMatch(committed, /\.demo/);
+    assert.ok(demo.bugs.startsWith(tmp), 'demo state is in the temporary checkout, never the real one');
     assert.match(demo.bugs, /\/\.demo\/known-bugs\.json$/);
     assert.deepEqual(loadKnownBugs(), [], 'an unseeded demo starts with no bugs');
     assert.equal(readFileSync(demo.decisions, 'utf8'), '');

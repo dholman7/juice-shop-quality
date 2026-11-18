@@ -7,7 +7,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { fileURLToPath } from 'node:url';
 import type { KnownBug } from '../src/known-bugs';
 import type { FindingDecision } from '../security/zap';
-import { DEMO_DIR, committedPath, resetDemo } from '../src/review-state';
+import { committedPath, demoDir, resetDemo } from '../src/review-state';
 
 /** What `yarn demo` undoes, and the review-page feature each one shows. */
 export const PLAN = {
@@ -41,7 +41,7 @@ const HISTORY_SNAPSHOT = fileURLToPath(new URL('../demo/history.json', import.me
 /** Replaces `.demo/` with the committed review minus PLAN. */
 export function seedDemo(): void {
   resetDemo();
-  mkdirSync(DEMO_DIR, { recursive: true });
+  mkdirSync(demoDir(), { recursive: true });
   const undoTests = new Set<string>(PLAN.groups.flatMap((g) => g.tests));
   const undoGroups = new Set<string>(PLAN.groups.map((g) => g.id));
 
@@ -53,14 +53,14 @@ export function seedDemo(): void {
       const last = b.rerated[b.rerated.length - 1];
       return { ...b, severity: last.from, rerated: b.rerated.slice(0, -1) };
     });
-  writeFileSync(`${DEMO_DIR}/known-bugs.json`, `${JSON.stringify({ bugs }, null, 2)}\n`);
+  writeFileSync(`${demoDir()}/known-bugs.json`, `${JSON.stringify({ bugs }, null, 2)}\n`);
 
   const decisions = readFileSync(committedPath('decisions'), 'utf8').split('\n').filter((l) => l.trim() && !undoGroups.has(JSON.parse(l).groupId));
-  writeFileSync(`${DEMO_DIR}/decisions.jsonl`, decisions.map((l) => `${l}\n`).join(''));
+  writeFileSync(`${demoDir()}/decisions.jsonl`, decisions.map((l) => `${l}\n`).join(''));
 
   const findings = (JSON.parse(readFileSync(committedPath('zapFindings'), 'utf8')).findings as FindingDecision[])
     .filter((f) => !(PLAN.zapRefs as readonly string[]).includes(f.ref));
-  writeFileSync(`${DEMO_DIR}/zap-findings.json`, `${JSON.stringify({ findings }, null, 2)}\n`);
+  writeFileSync(`${demoDir()}/zap-findings.json`, `${JSON.stringify({ findings }, null, 2)}\n`);
 
-  if (existsSync(HISTORY_SNAPSHOT)) copyFileSync(HISTORY_SNAPSHOT, `${DEMO_DIR}/history.json`);
+  if (existsSync(HISTORY_SNAPSHOT)) copyFileSync(HISTORY_SNAPSHOT, `${demoDir()}/history.json`);
 }

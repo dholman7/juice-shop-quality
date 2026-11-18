@@ -7,12 +7,12 @@
  *   yarn demo:rerun    run again, keeping the demo decisions, to show what they changed
  */
 import { existsSync } from 'node:fs';
-import { DEMO_DIR } from '../src/review-state';
+import { demoDir } from '../src/review-state';
 import { seedDemo } from './demo-seed';
 
 process.env.DEMO = '1';
 const command = process.argv[2];
 if (command !== 'review' && command !== 'rerun' && command !== undefined) throw new Error('usage: demo.ts [review|rerun]');
-if (!command || !existsSync(DEMO_DIR)) seedDemo();
+if (!command || !existsSync(demoDir())) seedDemo();
 console.log('Demo mode: review state is in .demo/; the committed review is untouched.');
 await import(command === 'review' ? '../triage/review-page' : './run-all');

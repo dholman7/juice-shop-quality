@@ -5,7 +5,7 @@
  *
  * Same decisions and files as the terminal reviews: severity check, failure groups, ZAP findings.
  * "Save the review" commits the review files (and can push), so a tester needs no git commands.
- * Listens on this machine only, and accepts changes only from its own page.
+ * Listens on this machine only. Browsers can send changes only from this page; any local process can, as with any local tool.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -15,13 +15,12 @@ import { loadKnownBugs, rescore, severityFor, severityMismatches, isScore } from
 import { findCandidates, searchBugs } from './duplicates';
 import { CATEGORIES, type Category, type Decision } from './types';
 import {
-  CAUSES, SCORE_HELP, appendDecision, areaOf, fileBug, loadRun, pendingProposals, reviewer, ruleOf, saveBugs, today, type BugTarget,
+  CAUSES, NoProposals, SCORE_HELP, appendDecision, areaOf, fileBug, loadRun, pendingProposals, reviewer, ruleOf, saveBugs, today, type BugTarget,
 } from './review-core';
 import { readSummary, recordDecision, undecided } from '../security/zap';
-import { isDemo } from '../src/review-state';
+import { isDemo, root } from '../src/review-state';
 
 const PORT = Number(process.env.REVIEW_PORT ?? 4321);
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
 /** What a review changes, and all "Save the review" ever commits. */
 const REVIEW_FILES = ['known-bugs.json', 'triage/decisions.jsonl', 'security/zap-findings.json', 'docs/coverage.md'];
 const PAGE = fileURLToPath(new URL('./review-page.html', import.meta.url));
@@ -34,8 +33,9 @@ function state() {
   let run;
   try {
     run = loadRun();
-  } catch {
-    run = undefined;
+  } catch (error) {
+    // No run yet is normal; a proposals file that can't be read is shown as an error, not as "no results".
+    if (!(error instanceof NoProposals)) throw error;
   }
   const groups = (run ? pendingProposals(run) : []).map((p) => {
     const group = run!.groups.find((g) => g.id === p.groupId)!;
@@ -136,25 +136,38 @@ function decideFinding(body: Record<string, unknown>): string {
   return body.verdict === 'bug' ? 'filed as an open security bug' : 'dismissed';
 }
 
-/** Git without a shell; a push that would ask for a password fails instead of hanging. */
+/** Git without a shell. A push that would ask for a password fails instead of hanging (an SSH passphrase prompt waits for the 60 s timeout). */
 function git(args: string[]): { ok: boolean; out: string } {
-  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', timeout: 60_000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+  const r = spawnSync('git', args, { cwd: root(), encoding: 'utf8', timeout: 60_000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
   return { ok: r.status === 0, out: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim() };
 }
 
+/** Files changed by commits that no remote has yet: what a push would send. */
+const unpushedFiles = (): string[] => git(['log', '--name-only', '--format=', 'HEAD', '--not', '--remotes']).out.split('\n').filter(Boolean);
+
 /**
- * The branch, which review files have uncommitted changes, and how many commits aren't pushed
- * (undefined with no upstream). Undefined outside a git checkout.
+ * The branch (undefined when HEAD is detached), which review files have uncommitted changes, and how many
+ * commits no remote has yet. Undefined outside a git checkout.
  */
-function gitState(): { branch: string; changed: string[]; unpushed?: number } | undefined {
-  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-  if (!branch.ok) return undefined;
-  const ahead = git(['rev-list', '--count', '@{upstream}..HEAD']);
+function gitState(): { branch?: string; changed: string[]; unpushed: number } | undefined {
+  if (!git(['rev-parse', '--git-dir']).ok) return undefined;
+  const branch = git(['symbolic-ref', '--quiet', '--short', 'HEAD']);
   return {
-    branch: branch.out,
+    branch: branch.ok ? branch.out : undefined,
     changed: REVIEW_FILES.filter((file) => git(['status', '--porcelain', '--', file]).out !== ''),
-    unpushed: ahead.ok ? Number(ahead.out) : undefined,
+    unpushed: Number(git(['rev-list', '--count', 'HEAD', '--not', '--remotes']).out) || 0,
   };
+}
+
+/**
+ * Pushes the branch, but only if everything a push would send is review files: the page never pushes
+ * someone's other work. Sets the upstream on a branch's first push.
+ */
+function push(branch: string): { ok: boolean; out: string } {
+  const other = [...new Set(unpushedFiles())].filter((file) => !REVIEW_FILES.includes(file));
+  if (other.length) return { ok: false, out: `other unpushed commits change ${other.slice(0, 3).join(', ')}${other.length > 3 ? '…' : ''}; push those yourself` };
+  const upstream = git(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']);
+  return git(upstream.ok ? ['push'] : ['push', '--set-upstream', 'origin', branch]);
 }
 
 /** Commits the changed review files, and nothing else, with the reviewer's name; pushes if asked. */
@@ -163,6 +176,7 @@ function saveReview(body: Record<string, unknown>): string {
   const reviewerName = who(body);
   const state = gitState();
   if (!state) throw new BadRequest('not a git checkout');
+  if (!state.branch) throw new BadRequest('HEAD is detached; check out a branch first');
   if (!state.changed.length) throw new BadRequest('no review changes to commit');
   const message = typeof body.message === 'string' ? body.message.trim() : '';
   if (!message) throw new BadRequest('enter a commit message');
@@ -170,18 +184,19 @@ function saveReview(body: Record<string, unknown>): string {
   if (!commit.ok) throw new BadRequest(`git commit failed: ${commit.out}`);
   const sha = git(['rev-parse', '--short', 'HEAD']).out;
   if (body.push !== true) return `committed ${sha} on ${state.branch}`;
-  const push = git(['push']);
-  if (!push.ok) throw new BadRequest(`committed ${sha}, but the push failed: ${push.out}`);
+  const pushed = push(state.branch);
+  if (!pushed.ok) throw new BadRequest(`committed ${sha}, but not pushed: ${pushed.out}`);
   return `committed ${sha} and pushed ${state.branch}`;
 }
 
-/** Pushes the current branch: the retry after a commit whose push failed. */
+/** Pushes the branch: the retry after a commit whose push failed. Same rule: review files only. */
 function pushReview(): string {
   if (isDemo()) throw new BadRequest('demo mode: nothing is committed, so nothing to push');
   const state = gitState();
   if (!state) throw new BadRequest('not a git checkout');
-  const push = git(['push']);
-  if (!push.ok) throw new BadRequest(`the push failed: ${push.out}`);
+  if (!state.branch) throw new BadRequest('HEAD is detached; check out a branch first');
+  const pushed = push(state.branch);
+  if (!pushed.ok) throw new BadRequest(`not pushed: ${pushed.out}`);
   return `pushed ${state.branch}`;
 }
 

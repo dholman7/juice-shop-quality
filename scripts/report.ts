@@ -112,8 +112,8 @@ export function buildReport(history: RunSummary[] = historyWithCurrent()): strin
   const { rows, stats } = readRows();
   const count = (res: Row['result']) => rows.filter((r) => r.result === res).length;
   const bugs = loadKnownBugs();
-  const triage: TriageRun | undefined = existsSync('reports/triage/proposals.json')
-    ? JSON.parse(readFileSync('reports/triage/proposals.json', 'utf8'))
+  const triage: TriageRun | undefined = existsSync(statePath('proposals'))
+    ? JSON.parse(readFileSync(statePath('proposals'), 'utf8'))
     : undefined;
   const decided = new Set(
     existsSync(statePath('decisions'))

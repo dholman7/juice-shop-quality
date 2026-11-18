@@ -11,8 +11,9 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { statePath } from '../src/review-state';
 import { findBug, isScore, jiraKey, loadKnownBugs, rescore, severityFor, severityMismatches, type KnownBug } from '../src/known-bugs';
 import { collectFailures, groupFailures } from './collect';
 import { classify } from './heuristic';
@@ -20,7 +21,7 @@ import { classifyWithModel } from './model';
 import { findCandidates, searchBugs } from './duplicates';
 import { CATEGORIES, type Category, type Decision, type FailureGroup, type Proposal } from './types';
 import {
-  CAUSES, OUT, PROPOSALS, SCORE_HELP, appendDecision, areaOf, fileBug, loadRun, pendingProposals, reviewer, ruleOf, saveBugs, today,
+  CAUSES, SCORE_HELP, appendDecision, areaOf, fileBug, loadRun, pendingProposals, reviewer, ruleOf, saveBugs, today,
   type BugTarget, type TriageRun,
 } from './review-core';
 
@@ -31,8 +32,8 @@ export function propose(provider = process.env.TRIAGE_PROVIDER ?? 'heuristic', r
   const groups = groupFailures(collectFailures(reportPath));
   const proposals = groups.map((g) => (provider === 'claude' ? classifyWithModel(g) : classify(g)));
   const run = { provider, createdAt: new Date().toISOString(), groups, proposals };
-  mkdirSync(OUT, { recursive: true });
-  writeFileSync(PROPOSALS, JSON.stringify(run, null, 2));
+  mkdirSync(dirname(statePath('proposals')), { recursive: true });
+  writeFileSync(statePath('proposals'), JSON.stringify(run, null, 2));
   return run;
 }
 
@@ -96,7 +97,8 @@ async function review(): Promise<void> {
     }
     const decision: Decision = {
       groupId: p.groupId,
-      verdict: answer === 'a' ? 'accepted' : answer === 'c' ? 'changed' : 'rejected',
+      // Same rule as the review page: picking the proposed cause again is still "accepted".
+      verdict: answer === 'r' ? 'rejected' : category === p.category ? 'accepted' : 'changed',
       category,
       reviewer: who,
       decidedAt: new Date().toISOString(),
@@ -124,15 +126,24 @@ async function review(): Promise<void> {
           target = { jira, title, impact, likelihood };
         }
       }
-      const filed = fileBug(bugs, group, target, who, today());
+      if (decidedElsewhere(run, p.groupId)) continue;
+      // Re-read: the review page may have filed or re-scored bugs while this prompt waited.
+      const filed = fileBug(loadKnownBugs(), group, target, who, today());
       saveBugs(filed.bugs);
       decision.bugId = filed.bugId;
       if (filed.created) decision.title = filed.created.title;
       console.log(`  recorded as ${decision.bugId}`);
-    }
+    } else if (decidedElsewhere(run, p.groupId)) continue;
     appendDecision(decision);
   }
   rl.close();
+}
+
+/** True, with a note, if the group was decided (on the review page) while this prompt waited. */
+function decidedElsewhere(run: TriageRun, groupId: string): boolean {
+  if (pendingProposals(run).some((p) => p.groupId === groupId)) return false;
+  console.log('  already decided elsewhere (the review page?); skipped');
+  return true;
 }
 
 /** One of the listed answers; anything else says so and asks again, so a typo never skips an item. */
@@ -269,7 +280,7 @@ function summary(run: TriageRun): void {
   const counts = Object.fromEntries(CATEGORIES.map((c) => [c, run.proposals.filter((p) => p.category === c).length]));
   const tests = run.groups.reduce((n, g) => n + g.failures.length, 0);
   console.log(`triage (${run.provider}): ${tests} failing test(s) in ${run.groups.length} group(s)`, counts);
-  console.log(`proposals written to ${PROPOSALS}; nothing is applied until someone decides in \`yarn review\``);
+  console.log(`proposals written to ${statePath('proposals')}; nothing is applied until someone decides in \`yarn review\``);
 }
 
 // Only as the entry script: run-all imports propose() and passes its own arguments.

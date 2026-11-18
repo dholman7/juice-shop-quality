@@ -110,10 +110,11 @@ async function post(path, body, msgEl) {
     }
     msgEl.textContent = '';
     toast(out.message);
-    await load();
   } catch (e) {
-    show(msgEl, 'Could not reach the review server. Is `yarn review` still running?', true);
+    return show(msgEl, 'Could not reach the review server. Is `yarn review` still running?', true);
   }
+  // Recorded; a failed refresh says so instead of suggesting the decision was lost.
+  try { await load(); } catch (e) { show(msgEl, `Recorded, but the page could not refresh: ${e.message}. Reload the page.`, true); }
 }
 function show(el, text, isError) { el.textContent = text; el.className = `msg ${isError ? 'err' : 'ok'}`; }
 
@@ -250,19 +251,22 @@ function findingCard(f) {
 // Commits the review files with the reviewer's name, and can push, so a tester needs no git commands.
 // One message element for the section, so a save's result stays on screen after the page refreshes.
 const saveMsg = h('div', { class: 'msg' });
+const commitMessage = h('input', { type: 'text' });
 function saveSection() {
   if (!S.git) return [];
   const title = h('h2', {}, 'Save the review');
-  if (S.demo) return [title, h('p', { class: 'sub' }, `In a real review, this commits the review files on branch ${S.git.branch} and can push them. In demo mode, decisions stay in .demo/ and nothing is committed.`)];
-  if (!S.git.changed.length && !S.git.unpushed) return [title, h('p', { class: 'sub' }, `Nothing to save: the review files have no changes on branch ${S.git.branch}.`), saveMsg];
+  const branch = S.git.branch || '(detached HEAD: check out a branch to save)';
+  if (S.demo) return [title, h('p', { class: 'sub' }, `In a real review, this commits the review files on branch ${branch} and can push them. In demo mode, decisions stay in .demo/ and nothing is committed.`)];
+  if (!S.git.changed.length && !S.git.unpushed) return [title, h('p', { class: 'sub' }, `Nothing to save: the review files have no changes on branch ${branch}.`), saveMsg];
   const msg = saveMsg;
   if (!S.git.changed.length && S.git.unpushed) return [title,
-    h('div', { class: 'card' }, h('p', {}, `${S.git.unpushed} commit${S.git.unpushed > 1 ? 's' : ''} on `, h('b', {}, S.git.branch), ' not pushed yet.'),
+    h('div', { class: 'card' }, h('p', {}, `${S.git.unpushed} commit${S.git.unpushed > 1 ? 's' : ''} on `, h('b', {}, branch), ' not pushed yet.'),
       h('div', { class: 'row' }, h('button', { class: 'primary', onclick: () => post('/api/push', {}, msg) }, 'Push')), msg)];
-  const message = h('input', { type: 'text', value: `chore: record review by ${reviewerName() || S.reviewer}` });
+  if (!commitMessage.value) commitMessage.value = `chore: record review by ${reviewerName() || S.reviewer}`;
+  const message = commitMessage;
   const save = (push) => post('/api/commit', { message: message.value, push }, msg);
   return [title,
-    h('p', { class: 'sub' }, 'Commits only these files, on branch ', h('b', {}, S.git.branch), ', with your name. Run ', h('code', {}, 'yarn all'), ' first if you can: it should exit 0.'),
+    h('p', { class: 'sub' }, 'Commits only these files, on branch ', h('b', {}, branch), ', with your name. Push sends only review commits. Run ', h('code', {}, 'yarn all'), ' first if you can: it should exit 0.'),
     h('div', { class: 'card' },
       h('ul', {}, S.git.changed.map((f) => h('li', {}, h('code', {}, f)))),
       h('label', {}, 'Commit message'), message,
@@ -288,9 +292,12 @@ function render() {
   const groups = S.groups.filter((g) => !later.has(g.groupId));
   const zap = S.zap || [];
   const left = S.severity.length + groups.length + zap.length;
+  const laterLeft = S.groups.length - groups.length;
   app.replaceChildren(
     S.demo ? h('p', { class: 'card demo' }, h('b', {}, 'Demo. '), 'A copy of the committed review with a few decisions undone, in .demo/. The committed review is untouched. ', h('code', {}, 'yarn demo:rerun'), ' shows the result.') : '',
-    left ? h('p', {}, `${left} item${left > 1 ? 's' : ''} to decide.${later.size ? ` ${later.size} left for later.` : ''}`)
+    left ? h('p', {}, `${left} item${left > 1 ? 's' : ''} to decide.${laterLeft ? ` ${laterLeft} left for later.` : ''}`)
+      : laterLeft ? h('div', { class: 'card' }, h('p', {}, `Only the ${laterLeft} group${laterLeft > 1 ? 's' : ''} you left for later remain${laterLeft > 1 ? '' : 's'}; the run stays red until ${laterLeft > 1 ? 'they are' : 'it is'} decided.`),
+        h('button', { onclick: () => { later.clear(); render(); } }, 'Show them again'))
       : h('div', { class: 'card done' }, h('h3', {}, 'All decided.'),
         h('p', {}, S.demo ? ['Run ', h('code', {}, 'yarn demo:rerun'), ' to see the decided tests count as open bugs.'] : ['Run ', h('code', {}, 'yarn all'), ' to confirm it passes, then save the review below.'])),
     ...(S.severity.length ? section('Severity check', 'Severity is impact × likelihood: 20+ critical, 12+ high, 6+ medium, else low. These bugs don\'t match their score, so the run fails until they do.', S.severity.map((b) => kept(`s:${b.id}:${b.severity}`, () => severityCard(b)))) : []),
@@ -307,7 +314,10 @@ function render() {
 }
 
 async function load() {
-  S = await (await fetch('/api/state')).json();
+  const res = await fetch('/api/state');
+  const body = await res.json();
+  if (!res.ok) throw new ServerError(body.error || 'The review server could not read the review state.');
+  S = body;
   if (!whoInput.value) {
     let saved = '';
     try { saved = localStorage.getItem('reviewer') || ''; } catch {}
@@ -315,7 +325,8 @@ async function load() {
   }
   render();
 }
-load().catch(() => { document.getElementById('app').replaceChildren(h('p', { class: 'msg err' }, 'Could not reach the review server. Start it with yarn review.')); });
+class ServerError extends Error {}
+load().catch((e) => { document.getElementById('app').replaceChildren(h('p', { class: 'msg err' }, e instanceof ServerError ? e.message : 'Could not reach the review server. Start it with yarn review.')); });
 </script>
 </body>
 </html>
